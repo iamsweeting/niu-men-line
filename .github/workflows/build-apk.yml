@@ -58,35 +58,9 @@ jobs:
       - name: Prepare cache dirs
         run: mkdir -p ~/.buildozer ~/.gradle ~/.cache ~/.local
 
-      - name: Build APK (Buildozer Docker)
-        run: |
-          # 1) --entrypoint bash：镜像自带入口脚本（UID 映射）的行为随镜像版本变化，
-          #    直接以 bash 为入口消除不确定性；配合 --user 与宿主机 UID 一致，挂载目录可写。
-          # 2) 容器内 pip>=24 时 p4a 会报 "cannot import name 'BuildDependencyInstallError'"
-          #    （pip 24 移除了该内部异常），因此先降级 pip<24：--user 安装到挂载的
-          #    ~/.local（PEP 668 允许 --user 安装），用户 site 在 sys.path 中优先于全局
-          #    site-packages，使 p4a 的 import pip 命中降级后的版本。
-          sudo docker run --rm \
-<<<<<<< HEAD
-            --user "$(id -u):$(id -g)" \
-            -v "$PWD":/home/user/hostcwd \
-            -v "$HOME/.buildozer":/home/user/.buildozer \
-            -v "$HOME/.gradle":/home/user/.gradle \
-            -v "$HOME/.cache":/home/user/.cache \
-            -v "$HOME/.local":/home/user/.local \
-            --workdir /home/user/hostcwd \
-            --entrypoint bash \
-            kivy/buildozer:latest \
-            -lc "python3 -m pip install --user --upgrade 'pip<24' && python3 -m pip --version && buildozer -v android debug"
-=======
-            -v "$PWD":/home/user/hostcwd
-            -v "$HOME/.buildozer":/home/user/.buildozer
-            -v "$HOME/.gradle":/home/user/.gradle
-            -v "$HOME/.cache":/home/user/.cache
-            --workdir /home/user/hostcwd
-            -e RUN_SCRIPT="pip install 'pip<24' && buildozer -v android debug"
-            kivy/buildozer:latest /bin/bash -lc "$RUN_SCRIPT"
->>>>>>> ad33d89411480bb21ef82be34fca8fa976b054ad
+     
+      - name: Build APK via buildozer docker
+        run: sudo docker run --rm -v "$PWD":/home/user/hostcwd -v "$HOME/.buildozer":/home/user/.buildozer -v "$HOME/.gradle":/home/user/.gradle -v "$HOME/.cache":/home/user/.cache --workdir /home/user/hostcwd -e RUN_SCRIPT="pip install 'pip<24' && buildozer -v android debug" --entrypoint /bin/sh kivy/buildozer:latest -c '/bin/bash -lc "$RUN_SCRIPT"'
         timeout-minutes: 120
 
       - name: Upload APK artifact
