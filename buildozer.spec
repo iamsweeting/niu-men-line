@@ -22,7 +22,9 @@ version = 1.0.0
 # 说明：不钉版本，让 Buildozer/p4a 按自带 recipe 的默认版本安装（kivy/kivymd/pillow 均有 recipe，
 # requests 为纯 Python 走 pip），避免"requirements 版本与 recipe 版本不匹配"导致 CI 构建失败。
 # 代码兼容 Kivy 2.2+/2.3+ 与 KivyMD 1.1.1+/1.2.0。
-requirements = python3,kivy,kivymd,requests,pillow
+#requirements = python3,kivy,kivymd,requests,pillow
+requirements = python3,kivy==2.2.0,kivymd==1.1.1,requests,pillow
+
 
 # 屏幕方向与全屏
 orientation = portrait
