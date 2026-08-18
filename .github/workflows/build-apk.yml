@@ -64,6 +64,7 @@ jobs:
           # 自动按宿主机 UID/GID 创建用户并降权运行 buildozer（加了 --user 会因
           # groupadd 无权限而失败，报 groupadd: Permission denied / exit code 10）。
           sudo docker run --rm \
+            --entrypoint bash \
             -v "$PWD":/home/user/hostcwd \
             -v "$HOME/.buildozer":/home/user/.buildozer \
             -v "$HOME/.gradle":/home/user/.gradle \
