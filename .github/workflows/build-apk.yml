@@ -60,7 +60,7 @@ jobs:
 
      
       - name: Build APK via buildozer docker
-        run: sudo docker run --rm -v "$PWD":/home/user/hostcwd -v "$HOME/.buildozer":/home/user/.buildozer -v "$HOME/.gradle":/home/user/.gradle -v "$HOME/.cache":/home/user/.cache --workdir /home/user/hostcwd kivy/buildozer:latest /bin/bash -c 'pip install "pip<24" && echo y | buildozer -v android debug'
+        run: sudo docker run --rm --entrypoint /bin/bash -v "$PWD":/home/user/hostcwd -v "$HOME/.buildozer":/home/user/.buildozer -v "$HOME/.gradle":/home/user/.gradle -v "$HOME/.cache":/home/user/.cache --workdir /home/user/hostcwd kivy/buildozer:latest -c 'pip install "pip<24" && echo y | buildozer -v android debug'
         timeout-minutes: 120
 
       - name: Upload APK artifact
