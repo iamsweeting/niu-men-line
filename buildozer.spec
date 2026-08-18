@@ -19,10 +19,10 @@ source.exclude_dirs = tests,.github,.buildozer,bin,tools,__pycache__
 version = 1.0.0
 
 # Python 依赖。
-# 说明：不钉版本，让 Buildozer/p4a 按自带 recipe 的默认版本安装（kivy/kivymd/pillow 均有 recipe，
-# requests 为纯 Python 走 pip），避免"requirements 版本与 recipe 版本不匹配"导致 CI 构建失败。
+# kivy/kivymd 钉住社区验证过的兼容组合（避免 pip 解析器在 kivymd 1.2.0 + kivy 最新版
+# 之间报 "Cannot install ... conflicting dependencies"）；requests/pillow 走 p4a recipe 默认。
 # 代码兼容 Kivy 2.2+/2.3+ 与 KivyMD 1.1.1+/1.2.0。
-requirements = python3,kivy,kivymd,requests,pillow
+requirements = python3,kivy==2.2.0,kivymd==1.1.1,requests,pillow
 
 # 屏幕方向与全屏
 orientation = portrait

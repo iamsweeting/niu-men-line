@@ -82,7 +82,7 @@
 桌面预览（需要 Python 3.8+）：
 
 ```bash
-pip install kivy==2.3.0 kivymd==1.2.0 requests
+pip install kivy==2.2.0 kivymd==1.1.1 requests
 bash tools/fetch_fonts.sh     # 下载中文字体（Windows 可用 Git Bash / WSL）
 python main.py
 ```
@@ -137,15 +137,19 @@ A：腾讯 K 线接口不含历史成交额时，成本线按 `收盘价×成交
 A：修改 `app/config.py` 中的 `N`（唐奇安周期）、`M`（ATR 周期）、`SMA10`、`CBX20_N`、`CBX60_N` 后重新打包。
 
 **Q：APK 内 Kivy / KivyMD 是什么版本？**
-A：`buildozer.spec` 不钉版本，由构建镜像自带的 p4a recipe 决定（Kivy 2.2+/2.3+、KivyMD 1.1.1+/1.2.0），
-代码对上述版本均兼容，这样可避免"requirements 与 recipe 版本不匹配"导致的构建失败。
+A：`buildozer.spec` 钉住社区验证过的兼容组合 **Kivy 2.2.0 + KivyMD 1.1.1**（避免 pip 解析器在
+kivymd 1.2.0 与 kivy 最新版之间报 "conflicting dependencies"）。代码对 Kivy 2.2+/2.3+ 与
+KivyMD 1.1.1+/1.2.0 均兼容。
 
 **Q：首次构建太慢？**
 A：首次需下载 SDK/NDK/依赖（约 30~60 分钟）；工作流已配置缓存，后续构建显著加快。
 
 **Q：Buildozer 构建步骤失败？**
-A：构建使用官方 `kivy/buildozer` Docker 镜像，docker run 命令**不要加 `--user` 参数**（镜像入口脚本
-会以 root 启动并自动按宿主机 UID/GID 创建用户；加 `--user` 会报 `groupadd: Permission denied`）。
+A：构建使用官方 `kivy/buildozer` Docker 镜像，注意两点：
+1. docker run 使用 `--entrypoint bash` 跳过镜像自带入口脚本（其 UID 映射行为随镜像版本变化），
+   并配合 `--user` 与宿主机 UID 一致，保证挂载目录可写；
+2. 容器内 pip ≥ 24 时 p4a 会报 `cannot import name 'BuildDependencyInstallError'`（pip 24 移除了
+   该内部异常），工作流已在构建前自动降级 `pip<24`（`--user` 安装到挂载的 `~/.local`）。
 若因镜像更新导致兼容问题，可将 `.github/workflows/build-apk.yml` 中的 `kivy/buildozer:latest`
 改为固定版本 `kivy/buildozer:1.5.0` 后重试。也可以在本地按官方文档走非 Docker 路径
 （`pip install buildozer` + 系统依赖）构建。
