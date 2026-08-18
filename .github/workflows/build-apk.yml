@@ -64,15 +64,13 @@ jobs:
           # 自动按宿主机 UID/GID 创建用户并降权运行 buildozer（加了 --user 会因
           # groupadd 无权限而失败，报 groupadd: Permission denied / exit code 10）。
           sudo docker run --rm \
-            -v "$PWD":/home/user/hostcwd \
-            -v "$HOME/.buildozer":/home/user/.buildozer \
-            -v "$HOME/.gradle":/home/user/.gradle \
-            -v "$HOME/.cache":/home/user/.cache \
-            --workdir /home/user/hostcwd \
-            -e RUN_SCRIPT="pip install 'pip<24' && buildozer -v android debug" \
-            --entrypoint /bin/sh \
-            kivy/buildozer:latest \
-            -c '/bin/bash -lc "$RUN_SCRIPT"'
+            -v "$PWD":/home/user/hostcwd
+            -v "$HOME/.buildozer":/home/user/.buildozer
+            -v "$HOME/.gradle":/home/user/.gradle
+            -v "$HOME/.cache":/home/user/.cache
+            --workdir /home/user/hostcwd
+            -e RUN_SCRIPT="pip install 'pip<24' && buildozer -v android debug"
+            kivy/buildozer:latest /bin/bash -lc "$RUN_SCRIPT"
         timeout-minutes: 120
 
       - name: Upload APK artifact
