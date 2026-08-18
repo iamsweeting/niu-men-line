@@ -70,7 +70,7 @@ jobs:
             -v "$HOME/.cache":/home/user/.cache \
             --workdir /home/user/hostcwd \
             kivy/buildozer:latest \
-            -v android debug
+            bash -lc "pip install 'pip<24' && buildozer -v android debug"
         timeout-minutes: 120
 
       - name: Upload APK artifact
