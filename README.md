@@ -43,7 +43,7 @@
 | `sh000xxx`（上证系列指数） | `sh000001` 上证指数、`sh000852` 中证1000 | 指数版 |
 | `sz399xxx`（深证系列指数） | `sz399001` 深证成指、`sz399006` 创业板指 | 指数版 |
 | A股个股（`sh60x`/`sz0x`/`sz3x`/`bj`） | `sh600519`、`sz300750` | 标的版 |
-| 其他（港股/美股/期货/HSTECH 等） | `hk00700`、`usaappl`、`hstech` | 基础主图版 |
+| 其他（港股/美股/期货/HSTECH 等） | `hk00700`、`usaapl`、`hstech` | 基础主图版 |
 
 > 成本线口径说明：标的版优先使用**成交额口径**（腾讯 K 线数据含成交额字段时）；
 > 若数据源未提供成交额，则按 `收盘价×成交量` 加权**估算**并在界面标注"（估算口径）"。
@@ -136,13 +136,19 @@ A：腾讯 K 线接口不含历史成交额时，成本线按 `收盘价×成交
 **Q：如何修改指标参数？**
 A：修改 `app/config.py` 中的 `N`（唐奇安周期）、`M`（ATR 周期）、`SMA10`、`CBX20_N`、`CBX60_N` 后重新打包。
 
+**Q：APK 内 Kivy / KivyMD 是什么版本？**
+A：`buildozer.spec` 不钉版本，由构建镜像自带的 p4a recipe 决定（Kivy 2.2+/2.3+、KivyMD 1.1.1+/1.2.0），
+代码对上述版本均兼容，这样可避免"requirements 与 recipe 版本不匹配"导致的构建失败。
+
 **Q：首次构建太慢？**
 A：首次需下载 SDK/NDK/依赖（约 30~60 分钟）；工作流已配置缓存，后续构建显著加快。
 
 **Q：Buildozer 构建步骤失败？**
-A：构建使用官方 `kivy/buildozer` Docker 镜像。若因镜像更新导致兼容问题，可将
-`.github/workflows/build-apk.yml` 中的 `kivy/buildozer:latest` 改为固定版本 `kivy/buildozer:1.5.0` 后重试。
-也可以在本地按官方文档走非 Docker 路径（`pip install buildozer` + 系统依赖）构建。
+A：构建使用官方 `kivy/buildozer` Docker 镜像，docker run 命令**不要加 `--user` 参数**（镜像入口脚本
+会以 root 启动并自动按宿主机 UID/GID 创建用户；加 `--user` 会报 `groupadd: Permission denied`）。
+若因镜像更新导致兼容问题，可将 `.github/workflows/build-apk.yml` 中的 `kivy/buildozer:latest`
+改为固定版本 `kivy/buildozer:1.5.0` 后重试。也可以在本地按官方文档走非 Docker 路径
+（`pip install buildozer` + 系统依赖）构建。
 
 **Q：手机安装时提示"未安装应用"或"解析包错误"？**
 A：请确认下载的 APK 完整（解压 artifact 后安装），且手机架构为 arm64 或 armv7（默认同时支持）。

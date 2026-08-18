@@ -14,6 +14,7 @@ from app import api, config
 def test_normalize_code():
     assert api.normalize_code("600519") == "sh600519"
     assert api.normalize_code("000001") == "sz000001"
+    assert api.normalize_code("200011") == "sz200011"   # 深市 B 股
     assert api.normalize_code("300750") == "sz300750"
     assert api.normalize_code("688981") == "sh688981"
     assert api.normalize_code(" 600519 ") == "sh600519"
@@ -42,7 +43,7 @@ def test_detect_version():
     assert api.detect_version("bj430047") == config.VERSION_STOCK   # 北交所
     assert api.detect_version("hstech") == config.VERSION_BASIC     # 海外英文代码
     assert api.detect_version("hk00700") == config.VERSION_BASIC    # 港股
-    assert api.detect_version("usaappl") == config.VERSION_BASIC    # 美股
+    assert api.detect_version("usaapl") == config.VERSION_BASIC    # 美股
 
 
 # --------------------------------------------------------------------------

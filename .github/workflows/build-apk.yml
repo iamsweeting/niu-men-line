@@ -60,8 +60,10 @@ jobs:
 
       - name: Build APK (Buildozer Docker)
         run: |
+          # 注意：不要加 --user 参数 —— kivy/buildozer 镜像的入口脚本以 root 启动，
+          # 自动按宿主机 UID/GID 创建用户并降权运行 buildozer（加了 --user 会因
+          # groupadd 无权限而失败，报 groupadd: Permission denied / exit code 10）。
           sudo docker run --rm \
-            --user "$(id -u):$(id -g)" \
             -v "$PWD":/home/user/hostcwd \
             -v "$HOME/.buildozer":/home/user/.buildozer \
             -v "$HOME/.gradle":/home/user/.gradle \

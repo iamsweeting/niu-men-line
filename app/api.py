@@ -37,7 +37,7 @@ def normalize_code(raw):
     """把用户输入规范成小写代码；6 位纯数字自动补市场前缀。
 
     例：'600519' -> 'sh600519'，'000001' -> 'sz000001'，'HSTECH' -> 'hstech'，
-        'SH.000852' -> 'sh000852'，'hk00700' -> 'hk00700'，'usAAPL' -> 'usaappl'
+        'SH.000852' -> 'sh000852'，'hk00700' -> 'hk00700'，'usAAPL' -> 'usaapl'
     """
     code = (raw or "").strip().lower().replace(" ", "").replace(".", "")
     if not code:
@@ -45,7 +45,7 @@ def normalize_code(raw):
     if re.fullmatch(r"\d{6}", code):
         if code[0] == "6":
             return "sh" + code
-        if code[0] in ("0", "1", "3"):
+        if code[0] in ("0", "1", "2", "3"):   # 含深市 B 股 2xx
             return "sz" + code
         if code[0] in ("4", "8", "9"):
             return "bj" + code
