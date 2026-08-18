@@ -67,6 +67,7 @@ jobs:
           #    ~/.local（PEP 668 允许 --user 安装），用户 site 在 sys.path 中优先于全局
           #    site-packages，使 p4a 的 import pip 命中降级后的版本。
           sudo docker run --rm \
+<<<<<<< HEAD
             --user "$(id -u):$(id -g)" \
             -v "$PWD":/home/user/hostcwd \
             -v "$HOME/.buildozer":/home/user/.buildozer \
@@ -77,6 +78,15 @@ jobs:
             --entrypoint bash \
             kivy/buildozer:latest \
             -lc "python3 -m pip install --user --upgrade 'pip<24' && python3 -m pip --version && buildozer -v android debug"
+=======
+            -v "$PWD":/home/user/hostcwd
+            -v "$HOME/.buildozer":/home/user/.buildozer
+            -v "$HOME/.gradle":/home/user/.gradle
+            -v "$HOME/.cache":/home/user/.cache
+            --workdir /home/user/hostcwd
+            -e RUN_SCRIPT="pip install 'pip<24' && buildozer -v android debug"
+            kivy/buildozer:latest /bin/bash -lc "$RUN_SCRIPT"
+>>>>>>> ad33d89411480bb21ef82be34fca8fa976b054ad
         timeout-minutes: 120
 
       - name: Upload APK artifact

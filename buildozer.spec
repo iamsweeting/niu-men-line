@@ -22,7 +22,13 @@ version = 1.0.0
 # kivy/kivymd 钉住社区验证过的兼容组合（避免 pip 解析器在 kivymd 1.2.0 + kivy 最新版
 # 之间报 "Cannot install ... conflicting dependencies"）；requests/pillow 走 p4a recipe 默认。
 # 代码兼容 Kivy 2.2+/2.3+ 与 KivyMD 1.1.1+/1.2.0。
+<<<<<<< HEAD
 requirements = python3,kivy==2.2.0,kivymd==1.1.1,requests,pillow
+=======
+#requirements = python3,kivy,kivymd,requests,pillow
+requirements = python3,kivy==2.2.0,kivymd==1.1.1,requests,pillow
+
+>>>>>>> ad33d89411480bb21ef82be34fca8fa976b054ad
 
 # 屏幕方向与全屏
 orientation = portrait
