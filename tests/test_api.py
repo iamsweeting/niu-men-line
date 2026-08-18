@@ -21,7 +21,7 @@ def test_normalize_code():
     assert api.normalize_code("SH.000852") == "sh000852"
     assert api.normalize_code("HSTECH") == "hstech"
     assert api.normalize_code("hk00700") == "hk00700"
-    assert api.normalize_code("usAAPL") == "usaappl"
+    assert api.normalize_code("usAAPL") == "usaapl"
 
 
 def test_normalize_code_empty_raises():
