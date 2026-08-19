@@ -42,7 +42,11 @@ android.permissions = INTERNET
 # 的强制 edge-to-edge（SDL2 2.30 已处理，但 34 行为变化最小）
 android.api = 34
 android.minapi = 24
-android.archs = arm64-v8a, armeabi-v7a
+# 仅 arm64-v8a：p4a v2026.05.09 的多架构构建有 bug——两个架构共用 build/venv，
+# 第二个架构的 `python -m venv venv`（无 --clear）会把捆绑的旧版 pip 覆盖到已升级的
+# pip 上，导致 "cannot import name 'open_rich_spinner'" 构建失败（develop 分支已修，
+# 加 --clear 并移除 pip 自升级步骤）。单架构规避该问题，且 2025 年机型均为 arm64。
+android.archs = arm64-v8a
 android.accept_sdk_license = True
 android.allow_backup = True
 android.private_storage = True

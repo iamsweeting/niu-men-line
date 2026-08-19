@@ -177,8 +177,10 @@ python3.11.5，可将 `.github/workflows/build-apk.yml` 中的 `kivy/buildozer:l
 （`pip install buildozer` + 系统依赖）构建。
 
 **Q：手机安装时提示"未安装应用"或"解析包错误"？**
-A：请确认下载的 APK 完整（解压 artifact 后安装），且手机架构为 arm64 或 armv7（默认同时支持）。
-若需自定义图标或应用名，修改 `tools/make_icon.ps1` 与 `buildozer.spec` 后重新构建。
+A：请确认下载的 APK 完整（解压 artifact 后安装），且手机架构为 **arm64**（当前仅构建
+arm64-v8a：v2026.05.09 的多架构构建存在 venv/pip 混装 bug，单架构可规避；2025 年
+机型均为 arm64）。若需自定义图标或应用名，修改 `tools/make_icon.ps1` 与 `buildozer.spec`
+后重新构建。
 
 ---
 
