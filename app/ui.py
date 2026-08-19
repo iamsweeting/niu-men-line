@@ -122,6 +122,7 @@ class NiumenApp(MDApp):
         self.topbar = MDTopAppBar(
             title="牛门线分析",
             md_bg_color=get_color_from_hex("#12294a"),
+            elevation=0,  # KivyMD 阴影着色器在 Adreno 驱动上崩溃（真机 SIGSEGV）
             right_action_items=[
                 ["theme-light-dark", lambda x: self.toggle_theme()],
                 ["refresh", lambda x: self.on_query(self._last_code)],
@@ -197,7 +198,7 @@ class NiumenApp(MDApp):
         self.info_card = MDCard(
             orientation="vertical",
             padding=CARD_PADDING, spacing=dp(2),
-            radius=CARD_RADIUS, elevation=1, size_hint_y=None,
+            radius=CARD_RADIUS, elevation=0, size_hint_y=None,  # 阴影在 Adreno 崩溃
         )
         self.info_card.bind(minimum_height=self.info_card.setter("height"))
         self.name_label = MDLabel(text="—", font_style="H6", adaptive_height=True)
@@ -228,7 +229,7 @@ class NiumenApp(MDApp):
         self.chart_card = MDCard(
             orientation="vertical",
             padding=[dp(6), dp(10), dp(6), dp(6)], spacing=dp(2),
-            radius=CARD_RADIUS, elevation=1, size_hint_y=None,
+            radius=CARD_RADIUS, elevation=0, size_hint_y=None,  # 阴影在 Adreno 崩溃
         )
         self.chart_card.bind(minimum_height=self.chart_card.setter("height"))
         self.chart = NMLChart()
@@ -245,7 +246,7 @@ class NiumenApp(MDApp):
         self.values_card = MDCard(
             orientation="vertical",
             padding=CARD_PADDING, spacing=dp(2),
-            radius=CARD_RADIUS, elevation=1, size_hint_y=None,
+            radius=CARD_RADIUS, elevation=0, size_hint_y=None,  # 阴影在 Adreno 崩溃
         )
         self.values_card.bind(minimum_height=self.values_card.setter("height"))
         self.close_label = MDLabel(
@@ -263,7 +264,7 @@ class NiumenApp(MDApp):
         self.judgment_card = MDCard(
             orientation="vertical",
             padding=CARD_PADDING, spacing=dp(4),
-            radius=CARD_RADIUS, elevation=1, size_hint_y=None,
+            radius=CARD_RADIUS, elevation=0, size_hint_y=None,  # 阴影在 Adreno 崩溃
         )
         self.judgment_card.bind(minimum_height=self.judgment_card.setter("height"))
         self.verdict_label = MDLabel(
@@ -553,7 +554,7 @@ class NiumenApp(MDApp):
                 size_hint=(0.95, 0.8),
                 pos_hint={"center_x": 0.5, "center_y": 0.5},
                 md_bg_color=(0.08, 0.08, 0.10, 0.96),
-                elevation=4,
+                elevation=0,  # 阴影在 Adreno 崩溃
             )
             sv = ScrollView()
             lb = KivyLabel(
