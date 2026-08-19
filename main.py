@@ -8,6 +8,17 @@ import sys
 import threading
 import traceback
 
+# 确保项目根目录可被导入（桌面运行与 Android 均适用）
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from app.diag import make_status_label, status  # noqa: E402
+
+status("进程启动（python 入口）")
+
+from app.ui import NiumenApp  # noqa: E402
+
+status("app.ui 导入完成")
+
 
 def _crash_log_path():
     """崩溃日志落盘位置：Android 为应用私有存储（debug 包可用 run-as 读取）。"""
@@ -49,15 +60,11 @@ def _install_crash_hooks():
         threading.excepthook = _thread_hook
 
 
-# 确保项目根目录可被导入（桌面运行与 Android 均适用）
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from app.ui import NiumenApp  # noqa: E402
-
-
 if __name__ == "__main__":
     _install_crash_hooks()
     app = NiumenApp()
+    app.status_label = make_status_label()
+    status("App 实例创建完成，启动 Kivy 事件循环")
     try:
         app.run()
     except SystemExit:

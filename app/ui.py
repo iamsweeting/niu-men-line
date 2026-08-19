@@ -30,6 +30,7 @@ except ImportError:  # KivyMD 1.1.x 的旧路径
 
 from . import api, config, indicator, interpreter
 from .chart import DateAxis, NMLChart
+from .diag import status as diag_status
 
 CARD_RADIUS = [dp(14), dp(14), dp(14), dp(14)]
 CARD_PADDING = [dp(14), dp(12), dp(14), dp(12)]
@@ -93,12 +94,17 @@ class NiumenApp(MDApp):
     # 构建界面
     # ------------------------------------------------------------------
     def build(self):
+        diag_status("build() 开始")
         self.theme_cls.theme_style = "Dark"
         self.theme_cls.primary_palette = "Blue"
         self.theme_cls.primary_hue = "700"
         _ensure_cjk_font()
+        diag_status("字体注册完成")
         self._build_screen()
+        diag_status("界面构建完成")
         Clock.schedule_once(lambda dt: self.on_query(config.DEFAULT_CODE), 0.6)
+        Clock.schedule_once(lambda dt: self._raise_status_label(), 0.1)
+        self._start_watchdog()
         return self.screen
 
     def _build_screen(self):
@@ -319,6 +325,8 @@ class NiumenApp(MDApp):
             self.bars = indicator.compute(self.rows, self.version)
             self.sel_idx = len(self.bars) - 1
             self._update_all()
+            diag_status("数据加载与渲染完成")
+            self._remove_status_label()
         except Exception:  # noqa: BLE001
             # Clock 回调里的异常会直接终止应用（Kivy 不会兜住），这里转成可见错误
             self._set_loading(False)
@@ -497,6 +505,37 @@ class NiumenApp(MDApp):
             toast(msg)
         except Exception:  # noqa: BLE001
             print("[牛门线] %s" % msg)
+
+    # ------------------------------------------------------------------
+    # 启动诊断辅助（详见 app/diag.py）
+    # ------------------------------------------------------------------
+    def _raise_status_label(self):
+        """UI 根控件覆盖了启动状态标签，把它重新置顶以便继续可见。"""
+        try:
+            from kivy.core.window import Window
+            from . import diag
+            if diag._status_label is not None and diag._status_label.parent is not None:
+                Window.remove_widget(diag._status_label)
+                Window.add_widget(diag._status_label)
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _remove_status_label(self):
+        """数据加载成功后移除诊断标签。"""
+        try:
+            from kivy.core.window import Window
+            from . import diag
+            if diag._status_label is not None and diag._status_label.parent is not None:
+                Window.remove_widget(diag._status_label)
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _start_watchdog(self):
+        """每 5 秒记录一次"事件循环存活"；若某步卡死，将停留在最后一条里程碑。"""
+        def check(dt):
+            diag_status("watchdog: 事件循环正常，运行 %.0fs" % dt)
+            Clock.schedule_once(check, 5)
+        Clock.schedule_once(check, 5)
 
     def _show_crash(self, msg):
         """把异常信息显示在界面浮层上，便于无 adb 时直接截图反馈。"""
