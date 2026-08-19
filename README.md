@@ -155,8 +155,14 @@ A：构建使用官方 `kivy/buildozer` Docker 镜像，注意三点：
 3. 镜像内置 p4a 的 python3 recipe 默认版本较新（3.13/3.14），与 Kivy 2.2.0 构建链冲突
    （`ERROR: Dependency for <*.pyx> not resolved: config.pxi`、`ModuleNotFoundError: cgi`），
    已在 `buildozer.spec` 钉住 `python3==3.10.14` 并加入 `cython` 解决。
-切换 Python 版本后，工作流通过缓存 key 中的 `-py310-` 标记强制重建一次 `~/.buildozer`
-（旧缓存含 Python 3.14 时代的 p4a 环境与构建产物，直接恢复会导致上述错误复现）。
+4. 镜像内预置了以 root 构建的旧 p4a 平台缓存（`/root/.buildozer`，含 Python 3.14.2 的
+   hostpython3），若直接复用会报 `python3 should have same version as hostpython3, 3.10.14 != 3.14.2`；
+   工作流已在构建前删除预置的旧 python 构建产物（`/root/.buildozer/android/platform/` 下
+   `build-*`/`python*`/`hostpython*`），强制 p4a 按钉版全新构建 hostpython3。
+切换 Python 版本后，工作流通过缓存 key 中的 `-py310-v2-` 标记强制重建一次 `~/.buildozer`
+（旧缓存含 Python 3.14 时代的 p4a 环境/hostpython3，直接恢复会导致
+`python3 should have same version as hostpython3` 等错误复现；后续若再切换 Python 版本，
+需同步升级该标记）。
 若因镜像更新导致兼容问题，可将 `.github/workflows/build-apk.yml` 中的 `kivy/buildozer:latest`
 改为固定版本 `kivy/buildozer:1.5.0` 后重试。也可以在本地按官方文档走非 Docker 路径
 （`pip install buildozer` + 系统依赖）构建。
