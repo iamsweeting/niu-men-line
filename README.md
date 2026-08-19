@@ -147,22 +147,22 @@ KivyMD 1.1.1+/1.2.0 均兼容。
 A：首次需下载 SDK/NDK/依赖（约 30~60 分钟）；工作流已配置缓存，后续构建显著加快。
 
 **Q：Buildozer 构建步骤失败？**
-A：构建使用官方 `kivy/buildozer` Docker 镜像，注意三点：
-1. docker run 使用 `--entrypoint /bin/bash` 跳过镜像自带入口脚本，直接执行 bash 命令（容器以
-   root 运行，buildozer 的 "Do you want to continue?" 提示由 `echo y |` 自动应答）；
-2. 容器内 pip ≥ 24 时 p4a 会报 `cannot import name 'BuildDependencyInstallError'`（pip 24 移除了
-   该内部异常），工作流已在构建前自动降级 `pip<24`；
-3. 镜像内置 p4a 的 python3 recipe 默认版本较新（3.13/3.14），与 Kivy 2.2.0 构建链冲突
-   （`ERROR: Dependency for <*.pyx> not resolved: config.pxi`、`ModuleNotFoundError: cgi`），
-   已在 `buildozer.spec` 钉住 `python3==3.10.14` 并加入 `cython` 解决。
-4. 镜像内预置了以 root 构建的旧 p4a 平台缓存（`/root/.buildozer`，含 Python 3.14.2 的
-   hostpython3），若直接复用会报 `python3 should have same version as hostpython3, 3.10.14 != 3.14.2`；
-   工作流已在构建前删除预置的旧 python 构建产物（`/root/.buildozer/android/platform/` 下
-   `build-*`/`python*`/`hostpython*`），强制 p4a 按钉版全新构建 hostpython3。
-切换 Python 版本后，工作流通过缓存 key 中的 `-py310-v2-` 标记强制重建一次 `~/.buildozer`
-（旧缓存含 Python 3.14 时代的 p4a 环境/hostpython3，直接恢复会导致
-`python3 should have same version as hostpython3` 等错误复现；后续若再切换 Python 版本，
-需同步升级该标记）。
+A：构建使用官方 `kivy/buildozer` Docker 镜像，容器内执行 `tools/docker_build.sh` 自动处理：
+1. 镜像 venv Python 为 3.14.x，而 Kivy 2.x 只能在 Python ≤3.12 上构建（cython 0.29 依赖的
+   `cgi` 模块在 3.13+ 被移除），且 p4a 要求运行环境 Python 与钉版一致（否则报
+   `python3 should have same version as hostpython3`）——脚本会自动选择/安装 3.10-3.12 的
+   Python 新建独立 venv，并把 `buildozer.spec` 的 `python3` 钉版动态改为该 Python 的确切版本；
+2. 容器内 pip ≥ 24 时旧版 p4a 会报 `cannot import name 'BuildDependencyInstallError'`
+   （pip 24 移除了该内部异常），脚本已先降级 `pip<24` 并安装最新 buildozer；
+3. 镜像预置了旧 python 构建产物（hostpython3 3.14.x），脚本在构建前清理
+   （`/root/.buildozer` 与 `/home/user/.buildozer` 下的 `build-*`/`python*`/`hostpython*`）。
+docker run 使用 `--entrypoint /bin/bash`（跳过镜像入口脚本，以 root 运行，`echo y |`
+自动应答 buildozer 的 root 提示）。
+切换 Python 版本后，工作流通过缓存 key 中的 `-py310-v3-` 标记强制重建一次 `~/.buildozer`
+（后续若再切换 Python 版本，需同步升级该标记）。
+若因镜像更新导致兼容问题，可将 `.github/workflows/build-apk.yml` 中的 `kivy/buildozer:latest`
+改为固定版本 `kivy/buildozer:1.5.0` 后重试。也可以在本地按官方文档走非 Docker 路径
+（`pip install buildozer` + 系统依赖）构建。
 若因镜像更新导致兼容问题，可将 `.github/workflows/build-apk.yml` 中的 `kivy/buildozer:latest`
 改为固定版本 `kivy/buildozer:1.5.0` 后重试。也可以在本地按官方文档走非 Docker 路径
 （`pip install buildozer` + 系统依赖）构建。
