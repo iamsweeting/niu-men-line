@@ -34,12 +34,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.buildozer
-          # key 含 -py310-v2- 标记：缓存里的 p4a 环境/hostpython3 是 Python 3.14 时代构建的，
-          # 恢复会导致 python3/hostpython3 版本不匹配（3.10.14 != 3.14.2）等错误复现；
-          # 每次切换 Python 版本都需升级该标记（v2/v3/...）强制全新构建。
-          key: ${{ runner.os }}-buildozer-py310-v2-${{ hashFiles('buildozer.spec') }}
+          # key 含 -py310-v3- 标记：旧缓存含 Python 3.14 时代的 p4a 环境/hostpython3，
+          # 恢复会导致版本不匹配等错误复现；每次切换 Python 版本都需升级该标记（v3/v4/...）。
+          key: ${{ runner.os }}-buildozer-py310-v3-${{ hashFiles('buildozer.spec') }}
           restore-keys: |
-            ${{ runner.os }}-buildozer-py310-v2-
+            ${{ runner.os }}-buildozer-py310-v3-
 
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -63,7 +62,20 @@ jobs:
 
      
       - name: Build APK via buildozer docker
-        run: sudo docker run --rm --entrypoint /bin/bash -v "$PWD":/home/user/hostcwd -v "$HOME/.buildozer":/home/user/.buildozer -v "$HOME/.gradle":/home/user/.gradle -v "$HOME/.cache":/home/user/.cache --workdir /home/user/hostcwd kivy/buildozer:latest -c 'pip install --break-system-packages "pip<24"; rm -rf /root/.buildozer/android/platform/build-* /root/.buildozer/android/platform/python* /root/.buildozer/android/platform/hostpython* 2>/dev/null; echo y | buildozer -v android debug'
+        run: |
+          # 容器内执行 tools/docker_build.sh（经 $PWD 挂载可见）：
+          #   自动选择 3.10-3.12 Python 建独立 venv -> 装最新 buildozer+cython+pip<24
+          #   -> 把 buildozer.spec 的 python3 钉版动态改为该 Python 确切版本（消除
+          #      hostpython3 版本不匹配）-> 清理镜像预置旧 python 产物 -> 构建。
+          sudo docker run --rm \
+            --entrypoint /bin/bash \
+            -v "$PWD":/home/user/hostcwd \
+            -v "$HOME/.buildozer":/home/user/.buildozer \
+            -v "$HOME/.gradle":/home/user/.gradle \
+            -v "$HOME/.cache":/home/user/.cache \
+            --workdir /home/user/hostcwd \
+            kivy/buildozer:latest \
+            -c 'bash tools/docker_build.sh'
         timeout-minutes: 120
 
       - name: Upload APK artifact

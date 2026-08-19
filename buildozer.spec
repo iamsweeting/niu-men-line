@@ -44,6 +44,15 @@ android.accept_sdk_license = True
 android.allow_backup = True
 android.private_storage = True
 
+# p4a（python-for-android）版本钉住：v2024.01.21（python recipes 重构之前的最后稳定版）。
+# 重构后 hostpython3 成为独立 recipe、版本固定为 p4a 默认值（3.14.x），不跟随 buildozer.spec
+# 里 python3 的钉版，会报 "python3 should have same version as hostpython3, 3.10.14 != 3.14.2"；
+# 旧版由 python3 recipe 按钉版自行构建 hostpython3，无此检查。该版本与 buildozer 1.5.0 同期。
+p4a.branch = v2024.01.21
+
+# NDK 钉为旧版 p4a 支持的 25c（新版 p4a 默认下载的 r28c 旧版不支持）
+android.ndk = 25c
+
 # 图标（由 tools/make_icon.ps1 生成）
 icon.filename = %(source.dir)s/app/assets/icon.png
 
