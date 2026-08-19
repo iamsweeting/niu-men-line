@@ -7,11 +7,10 @@
 # 运行环境 Python 版本与 buildozer.spec 钉版一致（否则报
 # "python3 should have same version as hostpython3, x != y"）。
 #
-# 版本约束：p4a v2024.01.21 的 hostpython3 recipe 版本硬编码为 3.11.5（源码无自动
-# 同步）。Python 3.12 的 configure 交叉编译会强校验 build python 与目标版本
-# major.minor 一致，hostpython(3.11) 配 3.12 目标会报
-# "has incompatible version 3.11 (expected: 3.12)"；3.10 与 3.13+/3.14 无此强校验，
-# 但 Kivy 2.2.0 在 3.13+ 上无法构建。故本脚本固定取 3.11.5。
+# 版本约束：构建 Python 必须为 3.11.5 —— 与 p4a-recipes/ 本地覆盖的 hostpython3
+# 版本一致（新版 p4a v2026.05.09 的 hostpython3 默认 3.14.2 并强制 python3 同版本，
+# 与 Kivy 2.2.0 冲突，故本地覆盖为 3.11.5）；且 Kivy 2.2.0 只能在 <=3.12 上构建
+# （3.13+ 移除 cgi 模块，报 config.pxi 缺失）。故本脚本固定取 3.11.5。
 #
 # 另：镜像基座升级（Ubuntu 25.04 基底）后自带 /usr/bin/cmake 为 CMake 4.x；
 # CMake 4.0 起移除了对 cmake_minimum_required(<3.5) 项目的兼容，导致 p4a 的
@@ -21,7 +20,7 @@
 #
 # 本脚本：
 #   1. 打印容器内可用 Python 清单（诊断用）；
-#   2. 自动选择 3.11.5 的 Python（与 p4a v2024.01.21 的 hostpython3 默认版本一致；
+#   2. 自动选择 3.11.5 的 Python（与 p4a-recipes/ 覆盖的 hostpython3 版本一致；
 #      找不到依次尝试 apt / uv 安装，仍失败则明确报错退出）；
 #   3. 用选中的 Python 新建独立 venv，安装最新 buildozer + cython + pip<24，
 #      并把 cmake 钉为 3.29.6（置入 PATH 首位）；
@@ -73,7 +72,7 @@ fi
 if [ -z "$PYBIN" ]; then
   echo "============================================================"
   echo "!! 无法获得 Python 3.11.5（apt 与 uv 均已尝试）。"
-  echo "!! p4a v2024.01.21 的 hostpython3 固定为 3.11.5，目标 python3 必须一致；"
+  echo "!! 本地覆盖的 hostpython3（p4a-recipes/）固定为 3.11.5，目标 python3 必须一致；"
   echo "!! 且 Kivy 2.2.0 只能在 <=3.12 上构建（3.13+ 移除 cgi 模块，报 config.pxi 缺失）。"
   echo "!! 请先让容器可用 python3.11.5（apt install python3.11 python3.11-venv，"
   echo "!! 或 uv python install 3.11.5）后重试。当前可用 Python："

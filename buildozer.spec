@@ -13,21 +13,22 @@ package.domain = org.niumen
 # 源码目录与打包范围
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,otf,ttf,txt,json,md
-source.exclude_dirs = tests,.github,.buildozer,bin,tools,__pycache__
+source.exclude_dirs = tests,.github,.buildozer,bin,tools,__pycache__,p4a-recipes
 
 # 版本
 version = 1.0.0
 
 # Python 依赖。
-# python3==3.10.14：钉住 p4a 构建的 Android Python 运行时版本——官方 kivy/buildozer 镜像内置
-# p4a 的 python3 recipe 默认版本较新（3.13/3.14），与 Kivy 2.2.0 构建链冲突（Python 3.13+
+# python3==3.11.5：由 docker_build.sh 动态改写为容器内构建 Python 的确切版本；
+# 必须为 3.11.5 —— 本地覆盖的 hostpython3 recipe（p4a-recipes/）版本即 3.11.5，
+# 且 p4a 要求两者一致；同时 Kivy 2.2.0 只能在 <=3.12 上构建（Python 3.13+
 # 移除 cgi 模块，导致 "config.pxi 缺失" / "ModuleNotFoundError: cgi"）。
 # cython：保证 .pyx/.pxi 预处理（cythonize）在构建环境中可用。
 # kivy/kivymd 钉住社区验证过的兼容组合（避免 pip 解析器在 kivymd 1.2.0 + kivy 最新版
 # 之间报 "Cannot install ... conflicting dependencies"）；requests/pillow 走 p4a recipe 默认。
 # 代码兼容 Kivy 2.2+/2.3+ 与 KivyMD 1.1.1+/1.2.0。
 
-requirements = python3==3.10.14,cython,kivy==2.2.0,kivymd==1.1.1,requests,pillow
+requirements = python3==3.11.5,cython,kivy==2.2.0,kivymd==1.1.1,requests,pillow
 
 
 
@@ -37,21 +38,25 @@ fullscreen = 0
 
 # Android 配置
 android.permissions = INTERNET
-android.api = 33
+# API 34：满足现代 p4a/AGP8 的 compileSdk>=34 要求；避开 Android 15 对 targetSdk 35
+# 的强制 edge-to-edge（SDL2 2.30 已处理，但 34 行为变化最小）
+android.api = 34
 android.minapi = 24
 android.archs = arm64-v8a, armeabi-v7a
 android.accept_sdk_license = True
 android.allow_backup = True
 android.private_storage = True
 
-# p4a（python-for-android）版本钉住：v2024.01.21（python recipes 重构之前的最后稳定版）。
-# 重构后 hostpython3 成为独立 recipe、版本固定为 p4a 默认值（3.14.x），不跟随 buildozer.spec
-# 里 python3 的钉版，会报 "python3 should have same version as hostpython3, 3.10.14 != 3.14.2"；
-# 旧版由 python3 recipe 按钉版自行构建 hostpython3，无此检查。该版本与 buildozer 1.5.0 同期。
-p4a.branch = v2024.01.21
+# p4a（python-for-android）钉到 2026 最新 release：自带 SDL2 2.30.x 与 NDK r27 支持，
+# 兼容 Android 15+ 与 16KB 内存页设备（2024 年初的 v2024.01.21 + NDK r25c 在新机
+# 上表现为黑屏/原生库无法加载）。新版 p4a 的 hostpython3 硬编码 3.14.2 且强制
+# python3 同版本，与 Kivy 2.2.0（仅支持 <=3.12）冲突 —— 通过 p4a.local_recipes 本地
+# 覆盖 hostpython3 版本为 3.11.5（见 p4a-recipes/），与构建 Python 3.11.5 一致。
+p4a.branch = v2026.05.09
+p4a.local_recipes = %(source.dir)s/p4a-recipes
 
-# NDK 钉为旧版 p4a 支持的 25c（新版 p4a 默认下载的 r28c 旧版不支持）
-android.ndk = 25c
+# NDK r27b：16KB 内存页对齐等 Android 15 时代要求的默认实现（r25c 无 16KB 支持）
+android.ndk = 27b
 
 # 图标（由 tools/make_icon.ps1 生成）
 icon.filename = %(source.dir)s/app/assets/icon.png

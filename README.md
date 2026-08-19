@@ -137,24 +137,25 @@ A：腾讯 K 线接口不含历史成交额时，成本线按 `收盘价×成交
 A：修改 `app/config.py` 中的 `N`（唐奇安周期）、`M`（ATR 周期）、`SMA10`、`CBX20_N`、`CBX60_N` 后重新打包。
 
 **Q：APK 内 Python / Kivy / KivyMD 是什么版本？**
-A：`buildozer.spec` 钉住 **Python 3.10.14 + Kivy 2.2.0 + KivyMD 1.1.1** 的兼容组合：
-`python3==3.10.14` 避免镜像内置 p4a 的默认 python3 recipe 版本（3.13/3.14）与 Kivy 2.2.0 构建链冲突
-（Python 3.13+ 移除 `cgi` 导致 config.pxi 生成失败）；kivy/kivymd 钉住避免 pip 解析器在
-kivymd 1.2.0 与 kivy 最新版之间报 "conflicting dependencies"。代码对 Kivy 2.2+/2.3+ 与
-KivyMD 1.1.1+/1.2.0 均兼容。
+A：`buildozer.spec` 钉住 **Python 3.11.5 + Kivy 2.2.0 + KivyMD 1.1.1** 的兼容组合：
+Python 必须为 3.11.5（与 `p4a-recipes/` 本地覆盖的 hostpython3 版本一致；Kivy 2.2.0
+只能在 ≤3.12 上构建，Python 3.13+ 移除 `cgi` 导致 config.pxi 生成失败）；kivy/kivymd
+钉住避免 pip 解析器在 kivymd 1.2.0 与 kivy 最新版之间报 "conflicting dependencies"。
+代码对 Kivy 2.2+/2.3+ 与 KivyMD 1.1.1+/1.2.0 均兼容。
 
 **Q：首次构建太慢？**
-A：首次需下载 SDK/NDK/依赖（约 30~60 分钟）；工作流已配置缓存，后续构建显著加快。
+A：首次需下载 SDK/NDK/依赖（约 30~60 分钟，NDK r27b 约 1GB）；工作流已配置缓存，后续构建显著加快。
 
 **Q：Buildozer 构建步骤失败？**
 A：构建使用官方 `kivy/buildozer` Docker 镜像，容器内执行 `tools/docker_build.sh` 自动处理：
-1. **hostpython3 版本不匹配（`python3 should have same version as hostpython3, 3.10.14 != 3.14.2`）的
-   根因**：p4a 新版（2024 重构后）把 hostpython3 变成了独立 recipe，版本固定为 p4a 默认值（3.14.x），
-   不再跟随 `python3==3.10.14` 钉版 → 已通过 `buildozer.spec` 钉住 `p4a.branch = v2024.01.21`
-   （重构前的最后稳定版，hostpython3 由 python3 recipe 按钉版自行构建），并同步钉
-   `android.ndk = 25c`（旧版 p4a 不支持新版默认的 r28c）。
+1. **hostpython3 版本不匹配（`python3 should have same version as hostpython3, x != y`）的
+   根因**：p4a 新版把 hostpython3 独立成 recipe 且版本固定，并强制与 python3 钉版一致 →
+   通过 `buildozer.spec` 钉住 `p4a.branch = v2026.05.09`（2026 最新 release，SDL2 2.30.x +
+   NDK r27 支持，兼容 Android 15+ / 16KB 内存页设备），并用 `p4a.local_recipes` 本地覆盖
+   `p4a-recipes/hostpython3` 的版本为 **3.11.5**（与构建 Python 一致；新版默认 3.14.2 与
+   Kivy 2.2.0 冲突），`android.ndk = 27b`。
 2. **Python 3.14 与 Kivy 2.x 构建链冲突**（`config.pxi` / `cgi`）：镜像 venv Python 为 3.14.x，
-   Kivy 2.2.0 只能在 ≤3.12 构建 → 脚本自动选择/安装 3.10-3.12 的 Python 新建独立 venv，
+   Kivy 2.2.0 只能在 ≤3.12 构建 → 脚本固定选择 3.11.5 新建独立 venv，
    并把 `python3` 钉版动态改为该 Python 的确切版本。
 3. **pip ≥ 24 与旧版 p4a**（`cannot import name 'BuildDependencyInstallError'`）：脚本已先降级
    `pip<24` 并安装 buildozer。
@@ -168,15 +169,12 @@ docker run 使用 `--entrypoint /bin/bash`（跳过镜像入口脚本，以 root
 切换 Python 版本后，工作流通过缓存 key 中的 `-py310-v3-` 标记强制重建一次 `~/.buildozer`
 （后续若再切换 Python 版本，需同步升级该标记）。
 若镜像中没有合适的 Python（`kivy/buildozer:latest` 目前基于 Ubuntu 25.x，系统只有
-3.13/3.14，apt 也没有老版本），脚本固定取 **Python 3.11.5**：p4a v2024.01.21 的
-hostpython3 recipe 版本硬编码为 3.11.5（无自动同步），目标 python3 必须是 3.11.x，
-否则 Python 3.12 的 configure 交叉编译会报
-`has incompatible version 3.11 (expected: 3.12)`（3.10 / 3.13+ 无此强校验，但 Kivy
-2.2.0 在 3.13+ 上必然构建失败）。脚本会先用容器自带的 python3 建临时 venv 装 **uv**，
-由 uv 拉取 python-build-standalone 的 CPython 3.11.5 继续构建；apt 与 uv 都失败才明确
-报错退出。若容器无法联网获取 python3.11.5，可将 `.github/workflows/build-apk.yml` 中的
-`kivy/buildozer:latest` 改为固定版本 `kivy/buildozer:1.5.0` 后重试。也可以在本地按
-官方文档走非 Docker 路径（`pip install buildozer` + 系统依赖）构建。
+3.13/3.14，apt 也没有老版本），脚本固定取 **Python 3.11.5**（与本地覆盖的 hostpython3
+一致）：先用容器自带的 python3 建临时 venv 装 **uv**，由 uv 拉取 python-build-standalone
+的 CPython 3.11.5 继续构建；apt 与 uv 都失败才明确报错退出。若容器无法联网获取
+python3.11.5，可将 `.github/workflows/build-apk.yml` 中的 `kivy/buildozer:latest`
+改为固定版本 `kivy/buildozer:1.5.0` 后重试。也可以在本地按官方文档走非 Docker 路径
+（`pip install buildozer` + 系统依赖）构建。
 
 **Q：手机安装时提示"未安装应用"或"解析包错误"？**
 A：请确认下载的 APK 完整（解压 artifact 后安装），且手机架构为 arm64 或 armv7（默认同时支持）。
