@@ -41,24 +41,29 @@ for p in python3.12 python3.11 python3.10 python3; do
   fi
 done
 
-# ---------- 2. 找不到则依次尝试 apt / uv 安装 ----------
+# ---------- 2. 找不到则依次尝试 apt → uv（python-build-standalone） ----------
 if [ -z "$PYBIN" ]; then
   echo ">> 未发现 3.10-3.12，尝试 apt 安装 python3.12 ..."
   if (apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq python3.12 python3.12-venv >/dev/null 2>&1) \
      && command -v python3.12 >/dev/null 2>&1; then
     PYBIN=python3.12
   else
-    echo "!! apt 安装 python3.12 失败（继续尝试其它途径）"
+    # kivy/buildozer:latest（Ubuntu 25.x 基底）只提供 python 3.13/3.14，apt 里没有
+    # python3.12 的包；改用它自带的 python3 建临时 venv，pip 装 uv，再由 uv 拉取
+    # python-build-standalone 的 CPython 3.12（自包含、无需 root、任意发行版可用）。
+    echo "!! apt 无 python3.12，改用 uv 拉取 python 3.12 ..."
+    python3 -m venv /tmp/bz-boot-venv
+    /tmp/bz-boot-venv/bin/pip install --quiet --upgrade uv 2>/dev/null || \
+      /tmp/bz-boot-venv/bin/pip install --quiet --upgrade --break-system-packages uv 2>/dev/null || true
+    if [ -x /tmp/bz-boot-venv/bin/uv ]; then
+      /tmp/bz-boot-venv/bin/uv python install 3.12 >/dev/null 2>&1 || true
+      PYBIN="$(/tmp/bz-boot-venv/bin/uv python find 3.12 2>/dev/null || true)"
+    fi
   fi
-fi
-if [ -z "$PYBIN" ] && command -v uv >/dev/null 2>&1; then
-  echo ">> 尝试 uv 安装 python3.12 ..."
-  uv python install 3.12 >/dev/null 2>&1 || true
-  PYBIN="$(uv python find 3.12 2>/dev/null || true)"
 fi
 if [ -z "$PYBIN" ]; then
   echo "============================================================"
-  echo "!! 无法获得 Python 3.10-3.12。"
+  echo "!! 无法获得 Python 3.10-3.12（apt 与 uv 均已尝试）。"
   echo "!! Kivy 2.2.0 只能在 <=3.12 上构建（3.13+ 移除 cgi 模块，报 config.pxi 缺失），"
   echo "!! 继续用 3.13/3.14 构建必然失败，故直接中止。"
   echo "!! 请先让容器可用 python3.12（apt install python3.12 python3.12-venv，"
