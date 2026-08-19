@@ -19,7 +19,10 @@ from kivymd.uix.button import MDIconButton, MDRaisedButton
 from kivymd.uix.card import MDCard
 from kivymd.uix.label import MDLabel
 from kivymd.uix.screen import MDScreen
-from kivymd.uix.separator import MDSeparator
+try:  # KivyMD 2.x
+    from kivymd.uix.separator import MDSeparator
+except ImportError:  # KivyMD 1.1.x：分隔线叫 MDDivider（kivymd.uix.divider）
+    from kivymd.uix.divider import MDDivider as MDSeparator
 from kivymd.uix.spinner import MDSpinner
 from kivymd.uix.textfield import MDTextField
 from kivymd.uix.toolbar import MDTopAppBar
