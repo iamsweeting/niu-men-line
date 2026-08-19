@@ -167,13 +167,16 @@ docker run 使用 `--entrypoint /bin/bash`（跳过镜像入口脚本，以 root
 自动应答 buildozer 的 root 提示）。
 切换 Python 版本后，工作流通过缓存 key 中的 `-py310-v3-` 标记强制重建一次 `~/.buildozer`
 （后续若再切换 Python 版本，需同步升级该标记）。
-若镜像中没有 3.10-3.12（`kivy/buildozer:latest` 目前基于 Ubuntu 25.x，系统只有 3.13/3.14，
-apt 也没有 python3.12），脚本会先用容器自带的 python3 建临时 venv 装 **uv**，
-由 uv 拉取 python-build-standalone 的 CPython 3.12 继续构建；apt 与 uv 都失败才明确报错
-退出（Kivy 2.2.0 在 3.13+ 上必然构建失败）。若容器无法联网获取 python3.12，
-可将 `.github/workflows/build-apk.yml` 中的 `kivy/buildozer:latest`
-改为固定版本 `kivy/buildozer:1.5.0` 后重试。也可以在本地按官方文档走非 Docker 路径
-（`pip install buildozer` + 系统依赖）构建。
+若镜像中没有合适的 Python（`kivy/buildozer:latest` 目前基于 Ubuntu 25.x，系统只有
+3.13/3.14，apt 也没有老版本），脚本固定取 **Python 3.11.5**：p4a v2024.01.21 的
+hostpython3 recipe 版本硬编码为 3.11.5（无自动同步），目标 python3 必须是 3.11.x，
+否则 Python 3.12 的 configure 交叉编译会报
+`has incompatible version 3.11 (expected: 3.12)`（3.10 / 3.13+ 无此强校验，但 Kivy
+2.2.0 在 3.13+ 上必然构建失败）。脚本会先用容器自带的 python3 建临时 venv 装 **uv**，
+由 uv 拉取 python-build-standalone 的 CPython 3.11.5 继续构建；apt 与 uv 都失败才明确
+报错退出。若容器无法联网获取 python3.11.5，可将 `.github/workflows/build-apk.yml` 中的
+`kivy/buildozer:latest` 改为固定版本 `kivy/buildozer:1.5.0` 后重试。也可以在本地按
+官方文档走非 Docker 路径（`pip install buildozer` + 系统依赖）构建。
 
 **Q：手机安装时提示"未安装应用"或"解析包错误"？**
 A：请确认下载的 APK 完整（解压 artifact 后安装），且手机架构为 arm64 或 armv7（默认同时支持）。

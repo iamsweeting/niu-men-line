@@ -7,6 +7,12 @@
 # 运行环境 Python 版本与 buildozer.spec 钉版一致（否则报
 # "python3 should have same version as hostpython3, x != y"）。
 #
+# 版本约束：p4a v2024.01.21 的 hostpython3 recipe 版本硬编码为 3.11.5（源码无自动
+# 同步）。Python 3.12 的 configure 交叉编译会强校验 build python 与目标版本
+# major.minor 一致，hostpython(3.11) 配 3.12 目标会报
+# "has incompatible version 3.11 (expected: 3.12)"；3.10 与 3.13+/3.14 无此强校验，
+# 但 Kivy 2.2.0 在 3.13+ 上无法构建。故本脚本固定取 3.11.5。
+#
 # 另：镜像基座升级（Ubuntu 25.04 基底）后自带 /usr/bin/cmake 为 CMake 4.x；
 # CMake 4.0 起移除了对 cmake_minimum_required(<3.5) 项目的兼容，导致 p4a 的
 # jpeg（libjpeg-turbo 2.1.0, min 2.8.12）等 cmake recipe configure 报
@@ -15,8 +21,8 @@
 #
 # 本脚本：
 #   1. 打印容器内可用 Python 清单（诊断用）；
-#   2. 自动选择 3.10 / 3.11 / 3.12 的 Python（找不到依次尝试 apt / uv 安装；
-#      仍失败则明确报错退出——Kivy 2.2.0 在 3.13+ 上必然构建失败，不浪费时间）；
+#   2. 自动选择 3.11.5 的 Python（与 p4a v2024.01.21 的 hostpython3 默认版本一致；
+#      找不到依次尝试 apt / uv 安装，仍失败则明确报错退出）；
 #   3. 用选中的 Python 新建独立 venv，安装最新 buildozer + cython + pip<24，
 #      并把 cmake 钉为 3.29.6（置入 PATH 首位）；
 #   4. 把 buildozer.spec 中 python3 钉版动态改为该 Python 的"确切版本"，
@@ -30,44 +36,47 @@ for p in /usr/bin/python3* /usr/local/bin/python3*; do
   if [ -x "$p" ]; then echo "  $p -> $("$p" --version 2>&1)"; fi
 done
 
-# ---------- 1. 选择 Python 3.10-3.12 ----------
+# ---------- 1. 选择 Python ----------
+# 只接受 3.11.5（必须与 p4a v2024.01.21 的 hostpython3 默认版本完全一致，
+# 否则 Python 3.12 configure 交叉编译报 "has incompatible version ..."）。
 PYBIN=""
-for p in python3.12 python3.11 python3.10 python3; do
+for p in python3.11 python3.12 python3.10 python3; do
   if command -v "$p" >/dev/null 2>&1; then
-    v="$("$p" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo bad)"
-    case "$v" in
-      3.10|3.11|3.12) PYBIN="$p"; break ;;
-    esac
+    v="$("$p" -c 'import sys; print("%d.%d.%d" % sys.version_info[:3])' 2>/dev/null || echo bad)"
+    if [ "$v" = "3.11.5" ]; then PYBIN="$p"; break; fi
   fi
 done
 
 # ---------- 2. 找不到则依次尝试 apt → uv（python-build-standalone） ----------
 if [ -z "$PYBIN" ]; then
-  echo ">> 未发现 3.10-3.12，尝试 apt 安装 python3.12 ..."
-  if (apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq python3.12 python3.12-venv >/dev/null 2>&1) \
-     && command -v python3.12 >/dev/null 2>&1; then
-    PYBIN=python3.12
-  else
-    # kivy/buildozer:latest（Ubuntu 25.x 基底）只提供 python 3.13/3.14，apt 里没有
-    # python3.12 的包；改用它自带的 python3 建临时 venv，pip 装 uv，再由 uv 拉取
-    # python-build-standalone 的 CPython 3.12（自包含、无需 root、任意发行版可用）。
-    echo "!! apt 无 python3.12，改用 uv 拉取 python 3.12 ..."
-    python3 -m venv /tmp/bz-boot-venv
-    /tmp/bz-boot-venv/bin/pip install --quiet --upgrade uv 2>/dev/null || \
-      /tmp/bz-boot-venv/bin/pip install --quiet --upgrade --break-system-packages uv 2>/dev/null || true
-    if [ -x /tmp/bz-boot-venv/bin/uv ]; then
-      /tmp/bz-boot-venv/bin/uv python install 3.12 >/dev/null 2>&1 || true
-      PYBIN="$(/tmp/bz-boot-venv/bin/uv python find 3.12 2>/dev/null || true)"
-    fi
+  echo ">> 未发现 3.11.5，尝试 apt 安装 python3.11 ..."
+  if apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq python3.11 python3.11-venv >/dev/null 2>&1 \
+     && command -v python3.11 >/dev/null 2>&1; then
+    # apt 提供的 3.11.x 补丁版本未必是 3.11.5，仍需精确校验
+    v="$(python3.11 -c 'import sys; print("%d.%d.%d" % sys.version_info[:3])' 2>/dev/null || echo bad)"
+    [ "$v" = "3.11.5" ] && PYBIN=python3.11
+  fi
+fi
+if [ -z "$PYBIN" ]; then
+  # kivy/buildozer:latest（Ubuntu 25.x 基底）只提供 python 3.13/3.14，apt 里也没有
+  # python3.11；改用它自带的 python3 建临时 venv，pip 装 uv，再由 uv 拉取
+  # python-build-standalone 的 CPython 3.11.5（自包含、无需 root、任意发行版可用）。
+  echo "!! apt 无 3.11.5，改用 uv 拉取 python 3.11.5 ..."
+  python3 -m venv /tmp/bz-boot-venv
+  /tmp/bz-boot-venv/bin/pip install --quiet --upgrade uv 2>/dev/null || \
+    /tmp/bz-boot-venv/bin/pip install --quiet --upgrade --break-system-packages uv 2>/dev/null || true
+  if [ -x /tmp/bz-boot-venv/bin/uv ]; then
+    /tmp/bz-boot-venv/bin/uv python install 3.11.5 >/dev/null 2>&1 || true
+    PYBIN="$(/tmp/bz-boot-venv/bin/uv python find 3.11.5 2>/dev/null || true)"
   fi
 fi
 if [ -z "$PYBIN" ]; then
   echo "============================================================"
-  echo "!! 无法获得 Python 3.10-3.12（apt 与 uv 均已尝试）。"
-  echo "!! Kivy 2.2.0 只能在 <=3.12 上构建（3.13+ 移除 cgi 模块，报 config.pxi 缺失），"
-  echo "!! 继续用 3.13/3.14 构建必然失败，故直接中止。"
-  echo "!! 请先让容器可用 python3.12（apt install python3.12 python3.12-venv，"
-  echo "!! 或 uv python install 3.12）后重试。当前可用 Python："
+  echo "!! 无法获得 Python 3.11.5（apt 与 uv 均已尝试）。"
+  echo "!! p4a v2024.01.21 的 hostpython3 固定为 3.11.5，目标 python3 必须一致；"
+  echo "!! 且 Kivy 2.2.0 只能在 <=3.12 上构建（3.13+ 移除 cgi 模块，报 config.pxi 缺失）。"
+  echo "!! 请先让容器可用 python3.11.5（apt install python3.11 python3.11-venv，"
+  echo "!! 或 uv python install 3.11.5）后重试。当前可用 Python："
   for p in /usr/bin/python3* /usr/local/bin/python3*; do
     [ -x "$p" ] && echo "    $p -> $("$p" --version 2>&1)"
   done
