@@ -2,6 +2,7 @@
 """牛门线分析 —— Kivy/KivyMD 移动端界面。"""
 import os
 import threading
+import traceback
 from datetime import date, datetime
 
 from kivy.clock import Clock
@@ -308,15 +309,22 @@ class NiumenApp(MDApp):
     def _on_fetch_ok(self, code, res, seq):
         if seq != self._req_seq:
             return  # 已有更新的请求，丢弃本次结果
-        self._set_loading(False)
-        self.code = code
-        self.rows = res["rows"]
-        self.source = res["source"]
-        self.name = res["name"] or code
-        self.version = api.detect_version(code)
-        self.bars = indicator.compute(self.rows, self.version)
-        self.sel_idx = len(self.bars) - 1
-        self._update_all()
+        try:
+            self._set_loading(False)
+            self.code = code
+            self.rows = res["rows"]
+            self.source = res["source"]
+            self.name = res["name"] or code
+            self.version = api.detect_version(code)
+            self.bars = indicator.compute(self.rows, self.version)
+            self.sel_idx = len(self.bars) - 1
+            self._update_all()
+        except Exception:  # noqa: BLE001
+            # Clock 回调里的异常会直接终止应用（Kivy 不会兜住），这里转成可见错误
+            self._set_loading(False)
+            msg = "数据处理失败（%s）：\n%s" % (code, traceback.format_exc())
+            print("[牛门线] %s" % msg, file=sys.stderr)
+            self._show_crash(msg)
 
     def _on_fetch_err(self, code, err, seq):
         if seq != self._req_seq:
@@ -489,3 +497,31 @@ class NiumenApp(MDApp):
             toast(msg)
         except Exception:  # noqa: BLE001
             print("[牛门线] %s" % msg)
+
+    def _show_crash(self, msg):
+        """把异常信息显示在界面浮层上，便于无 adb 时直接截图反馈。"""
+        try:
+            from kivy.uix.label import Label as KivyLabel
+            from kivy.uix.scrollview import ScrollView
+            overlay = MDCard(
+                size_hint=(0.95, 0.8),
+                pos_hint={"center_x": 0.5, "center_y": 0.5},
+                md_bg_color=(0.08, 0.08, 0.10, 0.96),
+                elevation=4,
+            )
+            sv = ScrollView()
+            lb = KivyLabel(
+                text="[b]程序异常[/b]\n\n%s" % msg,
+                markup=True,
+                font_size=dp(12),
+                color=(1, 0.45, 0.45, 1),
+                size_hint_y=None,
+                padding=[dp(12), dp(12)],
+            )
+            lb.bind(width=lambda o, *a: setattr(o, "text_size", (o.width, None)))
+            lb.bind(texture_size=lambda o, *a: setattr(o, "height", o.texture_size[1]))
+            sv.add_widget(lb)
+            overlay.add_widget(sv)
+            self.screen.add_widget(overlay)
+        except Exception:  # noqa: BLE001
+            pass
