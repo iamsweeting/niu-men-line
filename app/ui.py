@@ -531,11 +531,11 @@ class NiumenApp(MDApp):
             pass
 
     def _start_watchdog(self):
-        """每 5 秒记录一次"事件循环存活"；若某步卡死，将停留在最后一条里程碑。"""
+        """每 10 秒 Toast+日志记录一次"事件循环存活"；若某步卡死，将停留在最后一条。"""
         def check(dt):
             diag_status("watchdog: 事件循环正常，运行 %.0fs" % dt)
-            Clock.schedule_once(check, 5)
-        Clock.schedule_once(check, 5)
+            Clock.schedule_once(check, 10)
+        Clock.schedule_once(check, 10)
 
     def _show_crash(self, msg):
         """把异常信息显示在界面浮层上，便于无 adb 时直接截图反馈。"""

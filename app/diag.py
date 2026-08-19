@@ -32,8 +32,9 @@ def _log_files():
     return _log_paths
 
 
-def status(msg):
-    """记录一条里程碑：打印（Android 上进入 logcat）、落盘、更新屏幕标签。"""
+def status(msg, show_toast=True):
+    """记录一条里程碑：打印（Android 上进入 logcat）、落盘、更新屏幕标签，
+    并弹 Android Toast（即使 Kivy 窗口黑屏/未渲染也能看到进度）。"""
     line = "[牛门线][%6.1fs] %s" % (time.time() - _START, msg)
     print(line, flush=True)
     for p in _log_files():
@@ -48,6 +49,19 @@ def status(msg):
     try:
         if _status_label is not None:
             _status_label.text = "%s\n%s" % (msg, time.strftime("%H:%M:%S"))
+    except Exception:
+        pass
+    if show_toast:
+        _toast(msg)
+
+
+def _toast(text):
+    """Android Toast 悬浮提示：不依赖 Kivy 渲染，黑屏时也能看到进度。"""
+    try:
+        from android import mActivity
+        from jnius import autoclass
+        Toast = autoclass("android.widget.Toast")
+        Toast.makeText(mActivity, "牛门线: " + text, Toast.LENGTH_LONG).show()
     except Exception:
         pass
 
