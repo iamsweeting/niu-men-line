@@ -19,9 +19,9 @@ from kivymd.uix.button import MDIconButton, MDRaisedButton
 from kivymd.uix.card import MDCard
 from kivymd.uix.label import MDLabel
 from kivymd.uix.screen import MDScreen
-try:  # KivyMD 2.x
-    from kivymd.uix.separator import MDSeparator
-except ImportError:  # KivyMD 1.1.x：分隔线叫 MDDivider（kivymd.uix.divider）
+try:  # KivyMD 1.1.x/1.2.x：MDSeparator 位于 kivymd.uix.card
+    from kivymd.uix.card import MDSeparator
+except ImportError:  # KivyMD 2.x：分隔线改名为 MDDivider（kivymd.uix.divider）
     from kivymd.uix.divider import MDDivider as MDSeparator
 from kivymd.uix.spinner import MDSpinner
 from kivymd.uix.textfield import MDTextField
@@ -195,10 +195,11 @@ class NiumenApp(MDApp):
 
     def _build_info_card(self, box):
         self.info_card = MDCard(
-            orientation="vertical", adaptive_height=True,
+            orientation="vertical",
             padding=CARD_PADDING, spacing=dp(2),
-            radius=CARD_RADIUS, elevation=1,
+            radius=CARD_RADIUS, elevation=1, size_hint_y=None,
         )
+        self.info_card.bind(minimum_height=self.info_card.setter("height"))
         self.name_label = MDLabel(text="—", font_style="H6", adaptive_height=True)
         self.meta_label = MDLabel(
             text="—", font_style="Caption",
@@ -225,10 +226,11 @@ class NiumenApp(MDApp):
 
     def _build_chart_card(self, box):
         self.chart_card = MDCard(
-            orientation="vertical", adaptive_height=True,
+            orientation="vertical",
             padding=[dp(6), dp(10), dp(6), dp(6)], spacing=dp(2),
-            radius=CARD_RADIUS, elevation=1,
+            radius=CARD_RADIUS, elevation=1, size_hint_y=None,
         )
+        self.chart_card.bind(minimum_height=self.chart_card.setter("height"))
         self.chart = NMLChart()
         self.date_axis = DateAxis()
         self.legend_row = MDBoxLayout(
@@ -241,10 +243,11 @@ class NiumenApp(MDApp):
 
     def _build_values_card(self, box):
         self.values_card = MDCard(
-            orientation="vertical", adaptive_height=True,
+            orientation="vertical",
             padding=CARD_PADDING, spacing=dp(2),
-            radius=CARD_RADIUS, elevation=1,
+            radius=CARD_RADIUS, elevation=1, size_hint_y=None,
         )
+        self.values_card.bind(minimum_height=self.values_card.setter("height"))
         self.close_label = MDLabel(
             text="—", font_style="H5", adaptive_height=True,
             theme_text_color="Custom", text_color=config.COLOR_UP,
@@ -258,10 +261,11 @@ class NiumenApp(MDApp):
 
     def _build_judgment_card(self, box):
         self.judgment_card = MDCard(
-            orientation="vertical", adaptive_height=True,
+            orientation="vertical",
             padding=CARD_PADDING, spacing=dp(4),
-            radius=CARD_RADIUS, elevation=1,
+            radius=CARD_RADIUS, elevation=1, size_hint_y=None,
         )
+        self.judgment_card.bind(minimum_height=self.judgment_card.setter("height"))
         self.verdict_label = MDLabel(
             text="结构判断：—", font_style="H6", adaptive_height=True,
             theme_text_color="Custom", text_color=config.COLOR_UP,
