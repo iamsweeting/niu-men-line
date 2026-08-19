@@ -7,10 +7,18 @@
 # 运行环境 Python 版本与 buildozer.spec 钉版一致（否则报
 # "python3 should have same version as hostpython3, x != y"）。
 #
+# 另：镜像基座升级（Ubuntu 25.04 基底）后自带 /usr/bin/cmake 为 CMake 4.x；
+# CMake 4.0 起移除了对 cmake_minimum_required(<3.5) 项目的兼容，导致 p4a 的
+# jpeg（libjpeg-turbo 2.1.0, min 2.8.12）等 cmake recipe configure 报
+# "Compatibility with CMake < 3.5 has been removed from CMake."，
+# 因此本脚本把 cmake 用 pip 钉到 3.29.6 并置入 PATH 首位，全局绕开该问题。
+#
 # 本脚本：
 #   1. 打印容器内可用 Python 清单（诊断用）；
-#   2. 自动选择 3.10 / 3.11 / 3.12 的 Python（找不到再用 apt 安装，最后回退 python3）；
-#   3. 用选中的 Python 新建独立 venv，安装最新 buildozer + cython + pip<24；
+#   2. 自动选择 3.10 / 3.11 / 3.12 的 Python（找不到依次尝试 apt / uv 安装；
+#      仍失败则明确报错退出——Kivy 2.2.0 在 3.13+ 上必然构建失败，不浪费时间）；
+#   3. 用选中的 Python 新建独立 venv，安装最新 buildozer + cython + pip<24，
+#      并把 cmake 钉为 3.29.6（置入 PATH 首位）；
 #   4. 把 buildozer.spec 中 python3 钉版动态改为该 Python 的"确切版本"，
 #      从构造上消除 hostpython3 版本不匹配；
 #   5. 清理镜像预置的旧 python 构建产物（保留 SDK/NDK），再执行构建。
@@ -33,22 +41,33 @@ for p in python3.12 python3.11 python3.10 python3; do
   fi
 done
 
-# ---------- 2. 找不到则尝试 apt 安装 ----------
+# ---------- 2. 找不到则依次尝试 apt / uv 安装 ----------
 if [ -z "$PYBIN" ]; then
   echo ">> 未发现 3.10-3.12，尝试 apt 安装 python3.12 ..."
-  (apt-get update -qq && apt-get install -y -qq python3.12 python3.12-venv) >/dev/null 2>&1 \
-    && PYBIN=python3.12 \
-    || true
+  if (apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq python3.12 python3.12-venv >/dev/null 2>&1) \
+     && command -v python3.12 >/dev/null 2>&1; then
+    PYBIN=python3.12
+  else
+    echo "!! apt 安装 python3.12 失败（继续尝试其它途径）"
+  fi
+fi
+if [ -z "$PYBIN" ] && command -v uv >/dev/null 2>&1; then
+  echo ">> 尝试 uv 安装 python3.12 ..."
+  uv python install 3.12 >/dev/null 2>&1 || true
+  PYBIN="$(uv python find 3.12 2>/dev/null || true)"
 fi
 if [ -z "$PYBIN" ]; then
-  echo ">> 尝试 apt 安装 python3.10 ..."
-  (apt-get update -qq && apt-get install -y -qq python3.10 python3.10-venv) >/dev/null 2>&1 \
-    && PYBIN=python3.10 \
-    || true
-fi
-if [ -z "$PYBIN" ]; then
-  echo "WARN: 未找到 Python 3.10-3.12，回退到 python3（构建可能失败，请查看下方日志）"
-  PYBIN=python3
+  echo "============================================================"
+  echo "!! 无法获得 Python 3.10-3.12。"
+  echo "!! Kivy 2.2.0 只能在 <=3.12 上构建（3.13+ 移除 cgi 模块，报 config.pxi 缺失），"
+  echo "!! 继续用 3.13/3.14 构建必然失败，故直接中止。"
+  echo "!! 请先让容器可用 python3.12（apt install python3.12 python3.12-venv，"
+  echo "!! 或 uv python install 3.12）后重试。当前可用 Python："
+  for p in /usr/bin/python3* /usr/local/bin/python3*; do
+    [ -x "$p" ] && echo "    $p -> $("$p" --version 2>&1)"
+  done
+  echo "============================================================"
+  exit 1
 fi
 echo "== 使用构建 Python: $PYBIN -> $("$PYBIN" --version 2>&1) =="
 
@@ -58,6 +77,16 @@ echo "== 使用构建 Python: $PYBIN -> $("$PYBIN" --version 2>&1) =="
 /tmp/bz-venv/bin/pip install --upgrade --quiet "pip<24" buildozer cython || \
   /tmp/bz-venv/bin/pip install --upgrade --quiet --break-system-packages "pip<24" buildozer cython
 /tmp/bz-venv/bin/python -m pip --version
+
+# CMake 钉为 3.29.6 并置于 PATH 首位：镜像 /usr/bin/cmake 已是 CMake 4.x，
+# 4.0 移除了对 cmake_minimum_required(<3.5) 的兼容，p4a 的 jpeg（libjpeg-turbo 2.1.0，
+# min 2.8.12）/ sdl2_image 等 recipe 会直接 configure 失败。
+# pip 的 cmake wheel 为 py3-none，3.10-3.14 的 venv 均可安装；buildozer/p4a 的 recipe
+# 环境继承父进程 PATH（仅在头部追加 NDK 目录），故 venv bin 置首即可生效。
+/tmp/bz-venv/bin/pip install --upgrade --quiet "cmake==3.29.6" || \
+  /tmp/bz-venv/bin/pip install --upgrade --quiet --break-system-packages "cmake==3.29.6"
+export PATH="/tmp/bz-venv/bin:$PATH"
+echo "== cmake: $(command -v cmake) -> $(cmake --version | head -1) =="
 
 # ---------- 4. 钉版与运行 Python 版本对齐 ----------
 PYVER="$("$PYBIN" -c 'import sys; print("%d.%d.%d" % sys.version_info[:3])')"
