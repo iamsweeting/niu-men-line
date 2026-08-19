@@ -88,7 +88,7 @@ class NiumenApp(MDApp):
         self.version = config.VERSION_BASIC
         self.code = config.DEFAULT_CODE
         self.source = ""
-        self.name = ""
+        self.stock_name = ""
         self.sel_idx = -1              # 选中日在 bars 中的下标
         self._loading = False
         self._last_code = config.DEFAULT_CODE
@@ -327,7 +327,7 @@ class NiumenApp(MDApp):
             self.code = code
             self.rows = res["rows"]
             self.source = res["source"]
-            self.name = res["name"] or code
+            self.stock_name = res["name"] or code
             self.version = api.detect_version(code)
             self.bars = indicator.compute(self.rows, self.version)
             self.sel_idx = len(self.bars) - 1
@@ -399,7 +399,7 @@ class NiumenApp(MDApp):
         if self.version != config.VERSION_BASIC:
             basis = b.get("cost_basis", "estimate")
             cost_note = "（成交额口径）" if basis == "amount" else "（估算口径）"
-        self.name_label.text = "%s  %s" % (self.name or self.code, self.code)
+        self.name_label.text = "%s  %s" % (self.stock_name or self.code, self.code)
         self.meta_label.text = "数据源：%s · 版本：%s%s" % (self.source or "—", ver_name, cost_note)
         self.date_label.text = "截至交易日：%s（点击日历切换日期）" % b["date"]
 
