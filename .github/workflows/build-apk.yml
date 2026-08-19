@@ -34,9 +34,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.buildozer
-          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+          # key 含 -py310- 标记：旧缓存里的 p4a 环境/hostpython3 是 Python 3.14 时代构建的，
+          # 恢复会导致 config.pxi / cgi 不兼容问题复现；改 key 与 restore-keys 前缀强制一次全新构建。
+          key: ${{ runner.os }}-buildozer-py310-${{ hashFiles('buildozer.spec') }}
           restore-keys: |
-            ${{ runner.os }}-buildozer-
+            ${{ runner.os }}-buildozer-py310-
 
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -60,7 +62,7 @@ jobs:
 
      
       - name: Build APK via buildozer docker
-        run: sudo docker run --rm --entrypoint /bin/bash -v "$PWD":/home/user/hostcwd -v "$HOME/.buildozer":/home/user/.buildozer -v "$HOME/.gradle":/home/user/.gradle -v "$HOME/.cache":/home/user/.cache --workdir /home/user/hostcwd kivy/buildozer:latest -c 'pip install "pip<24" && echo y | buildozer -v android debug'
+        run: sudo docker run --rm --entrypoint /bin/bash -v "$PWD":/home/user/hostcwd -v "$HOME/.buildozer":/home/user/.buildozer -v "$HOME/.gradle":/home/user/.gradle -v "$HOME/.cache":/home/user/.cache --workdir /home/user/hostcwd kivy/buildozer:latest -c 'pip install --break-system-packages "pip<24" && echo y | buildozer -v android debug'
         timeout-minutes: 120
 
       - name: Upload APK artifact

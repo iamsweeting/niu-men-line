@@ -136,20 +136,27 @@ A：腾讯 K 线接口不含历史成交额时，成本线按 `收盘价×成交
 **Q：如何修改指标参数？**
 A：修改 `app/config.py` 中的 `N`（唐奇安周期）、`M`（ATR 周期）、`SMA10`、`CBX20_N`、`CBX60_N` 后重新打包。
 
-**Q：APK 内 Kivy / KivyMD 是什么版本？**
-A：`buildozer.spec` 钉住社区验证过的兼容组合 **Kivy 2.2.0 + KivyMD 1.1.1**（避免 pip 解析器在
-kivymd 1.2.0 与 kivy 最新版之间报 "conflicting dependencies"）。代码对 Kivy 2.2+/2.3+ 与
+**Q：APK 内 Python / Kivy / KivyMD 是什么版本？**
+A：`buildozer.spec` 钉住 **Python 3.10.14 + Kivy 2.2.0 + KivyMD 1.1.1** 的兼容组合：
+`python3==3.10.14` 避免镜像内置 p4a 的默认 python3 recipe 版本（3.13/3.14）与 Kivy 2.2.0 构建链冲突
+（Python 3.13+ 移除 `cgi` 导致 config.pxi 生成失败）；kivy/kivymd 钉住避免 pip 解析器在
+kivymd 1.2.0 与 kivy 最新版之间报 "conflicting dependencies"。代码对 Kivy 2.2+/2.3+ 与
 KivyMD 1.1.1+/1.2.0 均兼容。
 
 **Q：首次构建太慢？**
 A：首次需下载 SDK/NDK/依赖（约 30~60 分钟）；工作流已配置缓存，后续构建显著加快。
 
 **Q：Buildozer 构建步骤失败？**
-A：构建使用官方 `kivy/buildozer` Docker 镜像，注意两点：
-1. docker run 使用 `--entrypoint bash` 跳过镜像自带入口脚本（其 UID 映射行为随镜像版本变化），
-   并配合 `--user` 与宿主机 UID 一致，保证挂载目录可写；
+A：构建使用官方 `kivy/buildozer` Docker 镜像，注意三点：
+1. docker run 使用 `--entrypoint /bin/bash` 跳过镜像自带入口脚本，直接执行 bash 命令（容器以
+   root 运行，buildozer 的 "Do you want to continue?" 提示由 `echo y |` 自动应答）；
 2. 容器内 pip ≥ 24 时 p4a 会报 `cannot import name 'BuildDependencyInstallError'`（pip 24 移除了
-   该内部异常），工作流已在构建前自动降级 `pip<24`（`--user` 安装到挂载的 `~/.local`）。
+   该内部异常），工作流已在构建前自动降级 `pip<24`；
+3. 镜像内置 p4a 的 python3 recipe 默认版本较新（3.13/3.14），与 Kivy 2.2.0 构建链冲突
+   （`ERROR: Dependency for <*.pyx> not resolved: config.pxi`、`ModuleNotFoundError: cgi`），
+   已在 `buildozer.spec` 钉住 `python3==3.10.14` 并加入 `cython` 解决。
+切换 Python 版本后，工作流通过缓存 key 中的 `-py310-` 标记强制重建一次 `~/.buildozer`
+（旧缓存含 Python 3.14 时代的 p4a 环境与构建产物，直接恢复会导致上述错误复现）。
 若因镜像更新导致兼容问题，可将 `.github/workflows/build-apk.yml` 中的 `kivy/buildozer:latest`
 改为固定版本 `kivy/buildozer:1.5.0` 后重试。也可以在本地按官方文档走非 Docker 路径
 （`pip install buildozer` + 系统依赖）构建。
