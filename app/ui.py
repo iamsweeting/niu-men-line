@@ -160,9 +160,15 @@ class NiumenApp(MDApp):
             size_hint=(1, 1), md_bg_color=(0, 0, 0, 0.45),
             radius=[0, 0, 0, 0], elevation=0,
         ))
-        self.loader.add_widget(MDSpinner(
-            size_hint=(None, None), size=(dp(46), dp(46)),
-            pos_hint={"center_x": 0.5, "center_y": 0.5}, active=True,
+        # 注意：不用 MDSpinner —— 它用 SmoothLine 画圈（Kivy 2.2.0 的 SmoothLine
+        # 在 Adreno 825 驱动上首次绘制即崩溃，SIGSEGV @ glDrawElements）。
+        # 改用纯文本"加载中"，仅走普通 Rectangle/Label 绘制路径。
+        self.loader.add_widget(MDLabel(
+            text="加载中…", font_style="Subtitle1",
+            halign="center", valign="center",
+            theme_text_color="Primary",
+            size_hint=(None, None), size=(dp(180), dp(64)),
+            pos_hint={"center_x": 0.5, "center_y": 0.5},
         ))
 
     def _build_search(self, box):
