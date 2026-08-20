@@ -156,13 +156,19 @@ class NiumenApp(MDApp):
 
         # 加载遮罩
         self.loader = FloatLayout()
-        self.loader.add_widget(MDCard(
-            size_hint=(1, 1), md_bg_color=(0, 0, 0, 0.45),
-            radius=[0, 0, 0, 0], elevation=0,
-        ))
-        # 注意：不用 MDSpinner —— 它用 SmoothLine 画圈（Kivy 2.2.0 的 SmoothLine
-        # 在 Adreno 825 驱动上首次绘制即崩溃，SIGSEGV @ glDrawElements）。
-        # 改用纯文本"加载中"，仅走普通 Rectangle/Label 绘制路径。
+        # 注意：全部走普通 Kivy 绘制（Rectangle/Label），不用 KivyMD 的
+        # 自定义着色器组件（MDCard→RoundedRectangle、MDSpinner→SmoothLine），
+        # 它们在 Adreno 825 驱动上首次绘制即崩溃（SIGSEGV @ glDrawElements）。
+        _dim = FloatLayout(size_hint=(1, 1))
+        with _dim.canvas.before:
+            from kivy.graphics import Color as _Color, Rectangle as _Rect
+            _Color(0, 0, 0, 0.45)
+            _dim._bg_rect = _Rect(pos=_dim.pos, size=_dim.size)
+        _dim.bind(
+            pos=lambda o, *a: setattr(o._bg_rect, "pos", o.pos),
+            size=lambda o, *a: setattr(o._bg_rect, "size", o.size),
+        )
+        self.loader.add_widget(_dim)
         self.loader.add_widget(MDLabel(
             text="加载中…", font_style="Subtitle1",
             halign="center", valign="center",
