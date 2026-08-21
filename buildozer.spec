@@ -62,13 +62,12 @@ p4a.local_recipes = %(source.dir)s/p4a-recipes
 # NDK r27b：16KB 内存页对齐等 Android 15 时代要求的默认实现（r25c 无 16KB 支持）
 android.ndk = 27b
 
-# 固定调试签名密钥：仓库内 keystore/debug.keystore（androiddebugkey/android，
-# 标准 Android 调试密钥参数）。否则每次 CI 缓存未命中都会重新生成密钥，
-# 真机升级时报 INSTALL_FAILED_UPDATE_INCOMPATIBLE（签名不一致），只能卸载重装。
-p4a.android_keystore = %(source.dir)s/keystore/debug.keystore
-p4a.android_keystore_alias = androiddebugkey
-p4a.android_keystore_pass = android
-p4a.android_keyalias_pass = android
+# 固定调试签名密钥：debug 包由 AGP 用 ~/.android/debug.keystore 签名（缺失时
+# 自动生成 -> 每次全新 runner 签名漂移，真机升级报 INSTALL_FAILED_UPDATE_
+# INCOMPATIBLE）。tools/docker_build.sh 启动时把仓库内 keystore/debug.keystore
+# （androiddebugkey/android）复制到该位置，所有构建共享同一签名。
+# 注意：buildozer 对任意 p4a.* 键无通用透传，p4a.android_keystore 会被静默忽略；
+# 且 p4a 的 --keystore 系列参数仅 release 构建生效，debug 走 AGP 默认路径。
 
 # 图标（由 tools/make_icon.ps1 生成）
 icon.filename = %(source.dir)s/app/assets/icon.png

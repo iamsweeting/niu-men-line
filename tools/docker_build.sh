@@ -35,6 +35,16 @@ set -uo pipefail
 # 全局豁免避免误报（构建不依赖真实 git 历史）。
 git config --global --add safe.directory '*' 2>/dev/null || true
 
+# 固定 debug 签名：debug 包由 AGP 用默认 $HOME/.android/debug.keystore 签名，
+# 该文件缺失时 AGP 自动生成（每次全新 runner 都生成新密钥 -> 签名漂移，
+# 真机升级报 INSTALL_FAILED_UPDATE_INCOMPATIBLE）。把仓库内固定 keystore
+# （alias=androiddebugkey / pass=android，标准 Android 调试密钥参数）放过去，
+# AGP 存在即复用，所有构建共享同一签名。
+mkdir -p /root/.android /home/user/.android
+cp -f /home/user/hostcwd/keystore/debug.keystore /root/.android/debug.keystore 2>/dev/null || true
+cp -f /home/user/hostcwd/keystore/debug.keystore /home/user/.android/debug.keystore 2>/dev/null || true
+echo "== debug keystore 就位: $(ls -la /root/.android/debug.keystore 2>/dev/null | awk '{print $5, $9}') =="
+
 echo "================ Python 版本清单（诊断） ================"
 for p in /usr/bin/python3* /usr/local/bin/python3*; do
   if [ -x "$p" ]; then echo "  $p -> $("$p" --version 2>&1)"; fi
