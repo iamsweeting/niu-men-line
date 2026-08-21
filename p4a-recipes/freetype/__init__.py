@@ -27,23 +27,23 @@ class FreetypeRecipe(Recipe):
     .. seealso::
         https://sourceforge.net/projects/freetype/files/freetype2/2.5.3/
 
-    本地覆盖：仅把下载源从 savannah.gnu.org 换成 GitHub mirror，并修正
-    解压目录名（GitHub archive 顶层目录为 freetype-VER-2-14-1，与
-    get_build_dir 的 freetype-2.14.1 不一致）。
-    savannah.gnu.org 在 GitHub Actions 容器内偶发 502 Bad Gateway（站点级
-    限流），导致 p4a 下载 freetype 源码失败；GitHub mirror 与 Actions 同
-    基础设施，更稳定。其余逻辑与上游 pythonforandroid v2026.05.09 一致。
+    本地覆盖：把下载源从 savannah.gnu.org 换成 Debian pool 的官方 release
+    tarball（deb.debian.org 走 Fastly CDN，比 savannah 稳定得多，GitHub Actions
+    内不再偶发 502 Bad Gateway）。
+
+    注意不能用 GitHub 源码归档（archive/refs/tags/...tar.gz）：GitHub 归档
+    不含 autotools 生成的 configure（仓库里是生成文件，未入库），也不含
+    src/dlg 内容（git 仓库用 subprojects/dlg 子模块，归档里是空目录），
+    make 会报 "./configure: not found" 或触发 git submodule 检查（容器内
+    dubious ownership 失败）。Debian orig tarball 是官方 release tarball 的
+    重打包（顶层目录 freetype-2.14.3，含 configure 与内嵌 src/dlg/dlg.c，
+    仅剔除少量非自由文档），库构建不受影响。
+    其余逻辑与上游 pythonforandroid v2026.05.09 一致。
     """
 
-    version = '2.14.1'
+    version = '2.14.3'
 
-    @property
-    def versioned_url(self):
-        # freetype 的 GitHub tag 用连字符：VER-2-14-1
-        dashed = self.version.replace('.', '-')
-        return self.url.format(dashed=dashed)
-
-    url = 'https://github.com/freetype/freetype/archive/refs/tags/VER-{dashed}.tar.gz'  # noqa
+    url = 'https://deb.debian.org/debian/pool/main/f/freetype/freetype_2.14.3+dfsg.orig.tar.xz'  # noqa
     built_libraries = {'libfreetype.so': 'objs/.libs'}
 
     def unpack(self, arch):
@@ -63,28 +63,28 @@ class FreetypeRecipe(Recipe):
         with current_directory(build_dir):
             with tarfile.open(extraction_filename) as tf:
                 tf.extractall()
-            # GitHub archive 顶层目录为 freetype-VER-2-14-1，重命名为期望名
+            # Debian orig tarball 顶层目录为 freetype-2.14.3，重命名为期望名
             for e in glob.glob(build_dir + '/freetype-*'):
                 if e != target:
                     shprint(sh.mv, e, target)
                     break
 
-            # GitHub archive 不含 gitlink 子模块内容：subprojects/dlg 解压后是
-            # 空目录，而 freetype 顶层 builds/toplevel.mk 在 src/dlg 缺失时会
-            # 无条件执行 `git submodule update --init`（check_out_submodule，
-            # toplevel.mk:173）。容器内 git 从无 .git 的源码目录向上找到挂载的
-            # 仓库目录（hostcwd），因 dubious ownership 直接失败。
-            # dlg 仅供 freetype demo 程序使用（modules.cfg 中无 dlg），库构建
-            # 不需要；放一个占位 src/dlg/dlg.c 让 toplevel.mk 跳过整个
-            # copy_submodule 逻辑，避免任何 git 调用。
-            dlg_dir = join(target, 'src', 'dlg')
-            ensure_dir(dlg_dir)
-            with open(join(dlg_dir, 'dlg.c'), 'w') as f:
-                f.write(
-                    '/* dlg is only required by freetype demo programs;\n'
-                    '   placeholder to skip the git submodule check in '
-                    'builds/toplevel.mk */\n'
-                )
+            # 保险：若 src/dlg 为空（例如误用 GitHub 源码归档时，子模块内容
+            # 缺失），freetype 顶层 builds/toplevel.mk 在 src/dlg 缺失时会触发
+            # `git submodule update --init`（check_out_submodule），容器内 git
+            # 会向上找到挂载的仓库目录并因 dubious ownership 失败。dlg 仅供
+            # freetype demo 程序使用（modules.cfg 无 dlg），库构建不需要；
+            # release tarball 已内嵌 src/dlg/dlg.c，此分支通常不会命中。
+            dlg_file = join(target, 'src', 'dlg', 'dlg.c')
+            if not exists(dlg_file):
+                dlg_dir = join(target, 'src', 'dlg')
+                ensure_dir(dlg_dir)
+                with open(dlg_file, 'w') as f:
+                    f.write(
+                        '/* dlg is only required by freetype demo programs;\n'
+                        '   placeholder to skip the git submodule check in '
+                        'builds/toplevel.mk */\n'
+                    )
 
     def get_recipe_env(self, arch=None, with_harfbuzz=False):
         env = super().get_recipe_env(arch)
