@@ -123,9 +123,10 @@ jobs:
             sudo docker run --rm \
               --entrypoint /bin/bash \
               -v "$PWD":/home/user/hostcwd \
+              -v "$HOME/.buildozer":/root/.buildozer \
               -v "$HOME/.buildozer":/home/user/.buildozer \
-              -v "$HOME/.gradle":/home/user/.gradle \
-              -v "$HOME/.cache":/home/user/.cache \
+              -v "$HOME/.gradle":/root/.gradle \
+              -v "$HOME/.cache":/root/.cache \
               --workdir /home/user/hostcwd \
               kivy/buildozer:latest \
               -c 'bash tools/docker_build.sh'
