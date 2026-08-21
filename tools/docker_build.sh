@@ -115,6 +115,28 @@ rm -rf /home/user/.buildozer/android/platform/build-* \
        /home/user/.buildozer/android/platform/python* \
        /home/user/.buildozer/android/platform/hostpython* 2>/dev/null || true
 
+# ---------- 5.5 预下载 p4a recipe 源码到 packages 缓存 ----------
+# savannah.gnu.org 等在 GitHub Actions 容器内偶发 502 Bad Gateway，
+# p4a 的 download() 检查 <name>/<basename> + .mark- 文件判定缓存命中。
+# 这里在 rm 之后、buildozer 之前，用 curl（重试/断点续传）从更稳定的
+# GitHub mirror 预取 freetype，并创建 marker，让 p4a 跳过网络下载。
+PKG_DIR="/home/user/hostcwd/.buildozer/android/platform/build-arm64-v8a/packages"
+mkdir -p "$PKG_DIR/freetype"
+if [ ! -f "$PKG_DIR/freetype/freetype-2.14.1.tar.gz" ]; then
+  echo ">> 预下载 freetype 源码（GitHub mirror）..."
+  for i in 1 2 3 4 5 6 7 8; do
+    if curl -fL --retry 3 --retry-delay 5 -C - \
+        -o "$PKG_DIR/freetype/freetype-2.14.1.tar.gz" \
+        "https://github.com/freetype/freetype/archive/refs/tags/VER-2-14-1.tar.gz"; then
+      break
+    fi
+    echo "!! freetype 下载重试 $i ..."
+    sleep 10
+  done
+fi
+touch "$PKG_DIR/freetype/.mark-freetype-2.14.1.tar.gz"
+ls -la "$PKG_DIR/freetype/" 2>/dev/null || true
+
 # ---------- 6. 构建 ----------
 echo ">> 开始构建 ..."
 echo y | /tmp/bz-venv/bin/buildozer -v android debug
