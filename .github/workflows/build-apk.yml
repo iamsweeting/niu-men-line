@@ -106,6 +106,14 @@ jobs:
             rm -f "$HOME/.buildozer/android/platform/sdk-tmp.zip"
             echo "SDK tools 解压完成: $(ls "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/")"
           fi
+          # buildozer 期望旧版布局 sdkmanager 在 android-sdk/tools/bin/，兼容复制
+          if [ -f "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager" ] \
+             && [ ! -f "$HOME/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager" ]; then
+            mkdir -p "$HOME/.buildozer/android/platform/android-sdk/tools"
+            cp -r "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/." \
+                  "$HOME/.buildozer/android/platform/android-sdk/tools/"
+            echo "sdkmanager 已复制到 tools/bin"
+          fi
         timeout-minutes: 40
 
       - name: Build APK via buildozer docker
