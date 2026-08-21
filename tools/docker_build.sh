@@ -30,6 +30,11 @@
 # ============================================================================
 set -uo pipefail
 
+# 容器内 git 对挂载目录（hostcwd 等）的所有权检查会报 dubious ownership；
+# freetype 等 recipe 的 make 可能触发 git 调用（如 check_out_submodule），
+# 全局豁免避免误报（构建不依赖真实 git 历史）。
+git config --global --add safe.directory '*' 2>/dev/null || true
+
 echo "================ Python 版本清单（诊断） ================"
 for p in /usr/bin/python3* /usr/local/bin/python3*; do
   if [ -x "$p" ]; then echo "  $p -> $("$p" --version 2>&1)"; fi

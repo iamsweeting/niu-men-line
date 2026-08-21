@@ -69,6 +69,23 @@ class FreetypeRecipe(Recipe):
                     shprint(sh.mv, e, target)
                     break
 
+            # GitHub archive 不含 gitlink 子模块内容：subprojects/dlg 解压后是
+            # 空目录，而 freetype 顶层 builds/toplevel.mk 在 src/dlg 缺失时会
+            # 无条件执行 `git submodule update --init`（check_out_submodule，
+            # toplevel.mk:173）。容器内 git 从无 .git 的源码目录向上找到挂载的
+            # 仓库目录（hostcwd），因 dubious ownership 直接失败。
+            # dlg 仅供 freetype demo 程序使用（modules.cfg 中无 dlg），库构建
+            # 不需要；放一个占位 src/dlg/dlg.c 让 toplevel.mk 跳过整个
+            # copy_submodule 逻辑，避免任何 git 调用。
+            dlg_dir = join(target, 'src', 'dlg')
+            ensure_dir(dlg_dir)
+            with open(join(dlg_dir, 'dlg.c'), 'w') as f:
+                f.write(
+                    '/* dlg is only required by freetype demo programs;\n'
+                    '   placeholder to skip the git submodule check in '
+                    'builds/toplevel.mk */\n'
+                )
+
     def get_recipe_env(self, arch=None, with_harfbuzz=False):
         env = super().get_recipe_env(arch)
         if with_harfbuzz:
