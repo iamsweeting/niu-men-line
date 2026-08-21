@@ -37,21 +37,25 @@ from .diag import status as diag_status
 
 
 def _disable_kivymd_elevation_shadows():
-    """全局禁用 KivyMD 阴影绘制（Adreno 825 驱动崩溃规避）。
+    """全局禁用 KivyMD 阴影/ripple 绘制（Adreno 825 驱动崩溃规避）。
 
     真机 tombstone 系列证实：KivyMD 1.1.1 的 elevation 阴影用
     RenderContext + 自定义 GLSL（elevation.frag）绘制，在 Adreno 825
-    上首次绘制即 SIGSEGV（glDrawElements fault 0x24，寄存器逐字节一致）。
+    上首次绘制即 SIGSEGV（glDrawElements fault 0x24，寄存器逐字节一致）；
+    ripple（Ellipse + Stencil 指令）同样崩溃；MDRaisedButton 点击时
+    ButtonElevationBehaviour 的 elevation 动画会重新激活阴影。
 
-    修复方式：包装各阴影行为类的 __init__，构造完成后强制 elevation=0
-    并**把阴影 RenderContext 从 canvas.before 中移除**。仅设 elevation=0
-    时 RenderContext 仍在 canvas 指令流中，其自定义 shader 会污染同一
-    widget 及其子控件后续 canvas 指令的绘制（真机表现为图表/图形绘制
-    位置错乱）。彻底移除后阴影指令不再参与绘制，也不会再崩溃。
+    修复方式：
+      1. 包装各阴影行为类的 __init__，构造后强制 elevation=0 并移除
+         阴影 RenderContext（其自定义 shader 会污染后续 canvas 绘制）。
+      2. 全局禁用 ripple 指令创建。
+      3. 禁用按钮点击时的 elevation 动画（_anim_raised）。
+    注意：ButtonElevationBehaviour 在 kivymd.uix.button.button 模块
+    （kivymd.uix.button 的 __init__ 未导出它）。
     """
     try:
         from kivymd.uix.behaviors.elevation import CommonElevationBehavior
-        from kivymd.uix.button import ButtonElevationBehaviour
+        from kivymd.uix.button.button import ButtonElevationBehaviour
         from kivymd.uix.dialog import BaseDialog
     except Exception:  # noqa: BLE001
         return
@@ -77,6 +81,45 @@ def _disable_kivymd_elevation_shadows():
     CommonElevationBehavior.__init__ = _make_no_shadow(CommonElevationBehavior.__init__)
     ButtonElevationBehaviour.__init__ = _make_no_shadow(ButtonElevationBehaviour.__init__)
     BaseDialog.__init__ = _make_no_shadow(BaseDialog.__init__)
+
+    # KivyMD ripple（Ellipse + Stencil 指令）在 Adreno 825 上点击即崩溃
+    # （glDrawElements SIGSEGV fault 0x24，与 elevation 阴影同源）。
+    # 全局禁用：call_ripple_animation_methods 不再创建任何 ripple 指令。
+    try:
+        from kivymd.uix.behaviors.ripple_behavior import CommonRipple
+
+        def _no_ripple_touch(orig_td):
+            def _td(self, touch):
+                self._no_ripple_effect = True
+                # 仍调用 super 链（保持 ScrollView 滚动等触摸行为正常）
+                return orig_td(self, touch)
+            return _td
+
+        CommonRipple.on_touch_down = _no_ripple_touch(CommonRipple.on_touch_down)
+
+        def _no_ripple_anim(self, touch):
+            # 跳过 ripple 动画与指令创建
+            self._no_ripple_effect = True
+            return None
+
+        CommonRipple.call_ripple_animation_methods = _no_ripple_anim
+    except Exception:  # noqa: BLE001
+        pass
+
+    # MDRaisedButton 点击时 ButtonElevationBehaviour.on_touch_down 会启动
+    # elevation 动画（_anim_raised → elevation=0+1），重新激活阴影 RenderContext，
+    # 在 Adreno 825 上点击即崩溃。包装 on_touch_down，点击时 _anim_raised 置 None。
+    # create_anim_raised 保持原样——Kivy Clock 以弱引用按名称绑定它，不可整体替换。
+    try:
+        orig_td_btn = ButtonElevationBehaviour.on_touch_down
+
+        def _btn_td(self, touch):
+            self._anim_raised = None
+            return orig_td_btn(self, touch)
+
+        ButtonElevationBehaviour.on_touch_down = _btn_td
+    except Exception:  # noqa: BLE001
+        pass
 
 
 _disable_kivymd_elevation_shadows()
