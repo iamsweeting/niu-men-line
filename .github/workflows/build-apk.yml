@@ -67,16 +67,33 @@ jobs:
           #   自动选择 3.10-3.12 Python 建独立 venv -> 装最新 buildozer+cython+pip<24
           #   -> 把 buildozer.spec 的 python3 钉版动态改为该 Python 确切版本（消除
           #      hostpython3 版本不匹配）-> 清理镜像预置旧 python 产物 -> 构建。
-          sudo docker run --rm \
-            --entrypoint /bin/bash \
-            -v "$PWD":/home/user/hostcwd \
-            -v "$HOME/.buildozer":/home/user/.buildozer \
-            -v "$HOME/.gradle":/home/user/.gradle \
-            -v "$HOME/.cache":/home/user/.cache \
-            --workdir /home/user/hostcwd \
-            kivy/buildozer:latest \
-            -c 'bash tools/docker_build.sh'
-        timeout-minutes: 120
+          # 注：p4a 下载依赖源码（SDK/NDK/freetype 等）偶发 502 Bad Gateway，
+          # 故外层重试整轮构建（缓存保留，重试只补缺的下载）。
+          set +e
+          ok=0
+          for attempt in 1 2 3 4 5; do
+            echo "===== build attempt $attempt ====="
+            sudo docker run --rm \
+              --entrypoint /bin/bash \
+              -v "$PWD":/home/user/hostcwd \
+              -v "$HOME/.buildozer":/home/user/.buildozer \
+              -v "$HOME/.gradle":/home/user/.gradle \
+              -v "$HOME/.cache":/home/user/.cache \
+              --workdir /home/user/hostcwd \
+              kivy/buildozer:latest \
+              -c 'bash tools/docker_build.sh'
+            if [ $? -eq 0 ] && ls bin/*.apk >/dev/null 2>&1; then
+              ok=1
+              break
+            fi
+            echo "===== attempt $attempt failed, retrying ====="
+          done
+          set -e
+          if [ "$ok" != "1" ]; then
+            echo "ALL BUILD ATTEMPTS FAILED"
+            exit 1
+          fi
+        timeout-minutes: 180
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
