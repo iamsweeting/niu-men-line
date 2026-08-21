@@ -96,11 +96,15 @@ jobs:
               "https://dl.google.com/android/repository/commandlinetools-linux-6514223_latest.zip" \
               "$HOME/.buildozer/android/platform/sdk-tmp.zip"
             mkdir -p "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools"
-            unzip -q "$HOME/.buildozer/android/platform/sdk-tmp.zip" -d "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/"
-            mv "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/cmdline-tools" \
-               "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest"
+            unzip -q "$HOME/.buildozer/android/platform/sdk-tmp.zip" \
+              -d "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/"
+            # zip 解压出的顶层目录名不固定，取唯一子目录作为 latest
+            inner="$(ls -d "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/"*/ | head -1)"
+            if [ -n "$inner" ] && [ "$inner" != "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/" ]; then
+              mv "$inner" "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest"
+            fi
             rm -f "$HOME/.buildozer/android/platform/sdk-tmp.zip"
-            echo "SDK tools 解压完成"
+            echo "SDK tools 解压完成: $(ls "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/")"
           fi
         timeout-minutes: 40
 
