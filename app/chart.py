@@ -1,6 +1,14 @@
 # -*- coding: utf-8 -*-
-"""牛门线图表组件：Canvas 绘制的 5 日 K 线 + 指标线。"""
-from kivy.graphics import Color, Line, Rectangle
+"""牛门线图表组件：Canvas 绘制的 5 日 K 线 + 指标线。
+
+注意：Adreno 825 真机上，纯 Widget 的 canvas 指令自动变换矩阵失效
+（指令画在窗口原点），因此所有绘制指令手动包一层
+PushMatrix + Translate(self.pos)，强制应用 widget 位置后再画。
+"""
+from kivy.graphics import (
+    Color, Line, Rectangle,
+    PushMatrix, PopMatrix, Translate,
+)
 from kivy.metrics import dp
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
@@ -62,6 +70,10 @@ class NMLChart(Widget):
         cw = min(step * 0.55, dp(22))
 
         with self.canvas:
+            # Adreno 真机 canvas 自动变换失效，手动应用 widget 位置
+            PushMatrix()
+            Translate(self.pos[0], self.pos[1])
+
             # 网格
             Color(1, 1, 1, 0.06)
             for i in range(1, 6):
@@ -97,6 +109,8 @@ class NMLChart(Widget):
                 Color(1, 1, 1, 0.30)
                 Line(points=[x, pad_t, x, pad_t + plot_h], width=dp(1),
                      dash_length=dp(4), dash_offset=dp(2))
+
+            PopMatrix()
 
 
 class DateAxis(BoxLayout):

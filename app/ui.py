@@ -42,33 +42,41 @@ def _disable_kivymd_elevation_shadows():
     真机 tombstone 系列证实：KivyMD 1.1.1 的 elevation 阴影用
     RenderContext + 自定义 GLSL（elevation.frag）绘制，在 Adreno 825
     上首次绘制即 SIGSEGV（glDrawElements fault 0x24，寄存器逐字节一致）。
-    且 ButtonElevationBehaviour.__init__ 会把 elevation=0 强制改回 3、
-    BaseDialog 默认 elevation=3，单点设置无法覆盖所有组件——
-    这里直接改 on_elevation 为永远置 elevation=0 并 hide_elevation(True)：
-    on_size 据此把阴影 rect 尺寸归零、不产生顶点，彻底不触发着色器绘制；
-    set_shader_string 也改为不安装自定义片段着色器，双保险。
+
+    修复方式：包装各阴影行为类的 __init__，构造完成后强制 elevation=0
+    并**把阴影 RenderContext 从 canvas.before 中移除**。仅设 elevation=0
+    时 RenderContext 仍在 canvas 指令流中，其自定义 shader 会污染同一
+    widget 及其子控件后续 canvas 指令的绘制（真机表现为图表/图形绘制
+    位置错乱）。彻底移除后阴影指令不再参与绘制，也不会再崩溃。
     """
     try:
-        from kivy.clock import Clock as _Clock
         from kivymd.uix.behaviors.elevation import CommonElevationBehavior
+        from kivymd.uix.button import ButtonElevationBehaviour
+        from kivymd.uix.dialog import BaseDialog
     except Exception:  # noqa: BLE001
         return
 
-    def _always_hide(self, instance, value):
-        def h(*args):
+    def _make_no_shadow(orig_init):
+        def _init(self, *a, **kw):
+            orig_init(self, *a, **kw)
             try:
                 self.elevation = 0
-                self.hide_elevation(True)
+                # 彻底移除阴影 RenderContext，避免其 shader 污染后续 canvas 绘制
+                ctx = getattr(self, "context", None)
+                canvas_before = getattr(getattr(self, "canvas", None), "before", None)
+                if ctx is not None and canvas_before is not None:
+                    try:
+                        if ctx in canvas_before.children:
+                            canvas_before.remove(ctx)
+                    except Exception:  # noqa: BLE001
+                        pass
             except Exception:  # noqa: BLE001
                 pass
-        _Clock.schedule_once(h)
+        return _init
 
-    def set_shader_string(self, *args, **kwargs):
-        # 保留原方法名（Kivy Clock 以名称引用回调），但不再安装自定义着色器
-        return
-
-    CommonElevationBehavior.on_elevation = _always_hide
-    CommonElevationBehavior.set_shader_string = set_shader_string
+    CommonElevationBehavior.__init__ = _make_no_shadow(CommonElevationBehavior.__init__)
+    ButtonElevationBehaviour.__init__ = _make_no_shadow(ButtonElevationBehaviour.__init__)
+    BaseDialog.__init__ = _make_no_shadow(BaseDialog.__init__)
 
 
 _disable_kivymd_elevation_shadows()
@@ -98,6 +106,7 @@ def _ensure_cjk_font():
     """
     regular = bold = None
     p = resource_find(config.FONT_REGULAR)
+    print("[牛门线] FONT regular lookup:", config.FONT_REGULAR, "->", p)
     if p and os.path.exists(p):
         regular = p
         pb = resource_find(config.FONT_BOLD)
@@ -105,15 +114,20 @@ def _ensure_cjk_font():
     if not regular:
         for cand in ("/system/fonts/NotoSansCJK-Regular.ttc",
                      "/system/fonts/DroidSansFallback.ttf"):
+            print("[牛门线] FONT system cand:", cand, os.path.exists(cand))
             if os.path.exists(cand):
                 regular = cand
                 break
+    print("[牛门线] FONT chosen regular:", regular, "bold:", bold)
     if regular:
         try:
             LabelBase.register(name="Roboto", fn_regular=regular, fn_bold=bold or regular)
+            # KivyMD 1.1.1 的 font_styles：H5/H6/Subtitle2/Button 用 RobotoMedium
+            LabelBase.register(name="RobotoMedium", fn_regular=regular, fn_bold=bold or regular)
             LabelBase.register(name="CJK", fn_regular=regular, fn_bold=bold or regular)
-        except Exception:  # noqa: BLE001
-            pass
+            print("[牛门线] FONT registered OK (Roboto/RobotoMedium/CJK)")
+        except Exception as e:  # noqa: BLE001
+            print("[牛门线] FONT register FAILED:", repr(e))
     return regular
 
 
@@ -143,7 +157,7 @@ class NiumenApp(MDApp):
         diag_status("字体注册完成")
         self._build_screen()
         diag_status("界面构建完成")
-        if not self._bisect_mode():
+        if not self._bisect_mode() or self._bisect_mode() == "flat":
             Clock.schedule_once(lambda dt: self.on_query(config.DEFAULT_CODE), 0.6)
         Clock.schedule_once(lambda dt: self._raise_status_label(), 0.1)
         self._start_watchdog()
@@ -204,6 +218,29 @@ class NiumenApp(MDApp):
                 ],
             )
             root.add_widget(self.topbar)
+
+        if mode == "flat":
+            # 诊断模式：chart 直接放 screen（脱离 ScrollView），验证 canvas 渲染
+            self.input_field = MDTextField(
+                hint_text="flat-mode", size_hint=(1, None), height=dp(56),
+            )
+            self.chart = NMLChart()
+            self.chart.size_hint = (None, None)
+            self.chart.size = (dp(344), dp(300))
+            self.chart.pos = (dp(12), dp(400))
+            self.date_axis = DateAxis()
+            self.date_axis.size_hint = (None, None)
+            self.date_axis.width = dp(344)
+            self.date_axis.pos = (dp(12), dp(380))
+            self.legend_row = MDBoxLayout(
+                orientation="horizontal", size_hint_y=None, height=dp(26), spacing=dp(2),
+            )
+            self.screen.add_widget(self.chart)
+            self.screen.add_widget(self.date_axis)
+            self.screen.add_widget(self.legend_row)
+            self.chart_card = None  # flat 模式无卡片
+            self.loader = FloatLayout()
+            return
 
         body = ScrollView(do_scroll_x=False, bar_width=dp(4))
         box = MDBoxLayout(
@@ -489,10 +526,14 @@ class NiumenApp(MDApp):
     def _update_all(self):
         if self.sel_idx < 0 or not self.bars:
             return
-        self._update_info()
+        # flat/诊断模式可能只构建了 chart，其余组件不存在时跳过
+        if hasattr(self, "name_label") and self.name_label is not None:
+            self._update_info()
         self._update_chart()
-        self._update_values()
-        self._update_judgment()
+        if hasattr(self, "close_label") and self.close_label is not None:
+            self._update_values()
+        if hasattr(self, "verdict_label") and self.verdict_label is not None:
+            self._update_judgment()
 
     def _update_info(self):
         b = self.bars[self.sel_idx]
