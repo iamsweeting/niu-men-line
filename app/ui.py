@@ -105,13 +105,41 @@ class NiumenApp(MDApp):
         diag_status("字体注册完成")
         self._build_screen()
         diag_status("界面构建完成")
-        Clock.schedule_once(lambda dt: self.on_query(config.DEFAULT_CODE), 0.6)
+        if not self._bisect_mode():
+            Clock.schedule_once(lambda dt: self.on_query(config.DEFAULT_CODE), 0.6)
         Clock.schedule_once(lambda dt: self._raise_status_label(), 0.1)
         self._start_watchdog()
         return self.screen
 
+    def _bisect_mode(self):
+        """真机崩溃二分定位：读取 files/ui_mode.txt 决定构建哪些部件。
+
+        返回非 None 时启用"最小化模式"，可逐步排除崩溃源而无需重新打包。
+        模式说明（写到 /data/user/0/org.niumen.niumen/files/ui_mode.txt）：
+          min          —— 仅 MDScreen + 一个 MDLabel
+          no-topbar    —— 跳过 MDTopAppBar
+          no-search    —— 跳过搜索行与快捷按钮
+          no-cards     —— 跳过四张卡片
+          no-textfield —— 跳过输入框（保留按钮）
+        """
+        try:
+            p = os.path.join(os.path.expanduser("~"), "ui_mode.txt")
+            for cand in ("/data/user/0/org.niumen.niumen/files/ui_mode.txt",
+                         os.path.join(os.environ.get("ANDROID_PRIVATE", "/data/user/0/org.niumen.niumen/files"), "ui_mode.txt"),
+                         p):
+                if os.path.exists(cand):
+                    with open(cand, encoding="utf-8") as f:
+                        m = f.read().strip()
+                    if m:
+                        diag_status("bisect mode: %s" % m)
+                        return m
+        except Exception:  # noqa: BLE001
+            pass
+        return None
+
     def _build_screen(self):
         self.screen = MDScreen()
+        mode = self._bisect_mode()
 
         # MDScreen 是 RelativeLayout 子类，直接把控件挂到 screen 上会按 (0,0)
         # 定位（屏幕左下）且被后加的 ScrollView 覆盖；因此先建一个垂直根布局，
@@ -119,16 +147,25 @@ class NiumenApp(MDApp):
         root = MDBoxLayout(orientation="vertical")
         self.screen.add_widget(root)
 
-        self.topbar = MDTopAppBar(
-            title="牛门线分析",
-            md_bg_color=get_color_from_hex("#12294a"),
-            elevation=0,  # KivyMD 阴影着色器在 Adreno 驱动上崩溃（真机 SIGSEGV）
-            right_action_items=[
-                ["theme-light-dark", lambda x: self.toggle_theme()],
-                ["refresh", lambda x: self.on_query(self._last_code)],
-            ],
-        )
-        root.add_widget(self.topbar)
+        if mode == "min":
+            # 最小化模式：仅一个 MDLabel，用于验证 KivyMD 基础绘制是否崩溃
+            self.screen.add_widget(MDLabel(
+                text="bisect min", halign="center", valign="middle",
+            ))
+            self.loader = FloatLayout()
+            return
+
+        if mode != "no-topbar":
+            self.topbar = MDTopAppBar(
+                title="牛门线分析",
+                md_bg_color=get_color_from_hex("#12294a"),
+                elevation=0,  # KivyMD 阴影着色器在 Adreno 驱动上崩溃（真机 SIGSEGV）
+                right_action_items=[
+                    ["theme-light-dark", lambda x: self.toggle_theme()],
+                    ["refresh", lambda x: self.on_query(self._last_code)],
+                ],
+            )
+            root.add_widget(self.topbar)
 
         body = ScrollView(do_scroll_x=False, bar_width=dp(4))
         box = MDBoxLayout(
@@ -141,11 +178,13 @@ class NiumenApp(MDApp):
         body.add_widget(box)
         root.add_widget(body)
 
-        self._build_search(box)
-        self._build_info_card(box)
-        self._build_chart_card(box)
-        self._build_values_card(box)
-        self._build_judgment_card(box)
+        if mode != "no-search":
+            self._build_search(box)
+        if mode != "no-cards":
+            self._build_info_card(box)
+            self._build_chart_card(box)
+            self._build_values_card(box)
+            self._build_judgment_card(box)
 
         box.add_widget(MDLabel(
             text="数据来源：腾讯财经（默认）/ 新浪财经（备用）\n"
