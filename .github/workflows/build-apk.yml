@@ -114,6 +114,20 @@ jobs:
                   "$HOME/.buildozer/android/platform/android-sdk/tools/"
             echo "sdkmanager 已复制到 tools/bin"
           fi
+          # p4a recipe 源码（savannah.gnu.org 偶发 502）：预下载并解压 freetype，
+          # 用 P4A_FREETYPE_DIR 让 p4a 直接使用（symlink，绕过下载与解压目录名问题）。
+          mkdir -p "$HOME/freetype-src"
+          if [ ! -d "$HOME/freetype-src/freetype-2.14.1" ]; then
+            dl_retry \
+              "https://github.com/freetype/freetype/archive/refs/tags/VER-2-14-1.tar.gz" \
+              "$HOME/freetype-src/freetype.tar.gz"
+            mkdir -p "$HOME/freetype-src/unpack"
+            tar -xzf "$HOME/freetype-src/freetype.tar.gz" -C "$HOME/freetype-src/unpack/"
+            mv "$HOME/freetype-src/unpack/"freetype-* "$HOME/freetype-src/freetype-2.14.1"
+            rm -f "$HOME/freetype-src/freetype.tar.gz"
+            echo "freetype 源码就绪: $(ls $HOME/freetype-src/)"
+          fi
+          echo "P4A_FREETYPE_DIR=$HOME/freetype-src/freetype-2.14.1" >> "$GITHUB_ENV"
         timeout-minutes: 40
 
       - name: Build APK via buildozer docker
@@ -130,6 +144,8 @@ jobs:
             echo "===== build attempt $attempt ====="
             sudo docker run --rm \
               --entrypoint /bin/bash \
+              -e "P4A_FREETYPE_DIR=$HOME/freetype-src/freetype-2.14.1" \
+              -v "$HOME/freetype-src/freetype-2.14.1":/root/freetype-src:ro \
               -v "$PWD":/home/user/hostcwd \
               -v "$HOME/.buildozer":/root/.buildozer \
               -v "$HOME/.buildozer":/home/user/.buildozer \
