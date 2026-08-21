@@ -1,4 +1,4 @@
-﻿from pythonforandroid.recipe import Recipe
+from pythonforandroid.recipe import Recipe
 from pythonforandroid.logger import shprint, info, info_main
 from pythonforandroid.util import (
     current_directory, ensure_dir, rmdir,
@@ -36,7 +36,14 @@ class FreetypeRecipe(Recipe):
     """
 
     version = '2.14.1'
-    url = 'https://github.com/freetype/freetype/archive/refs/tags/VER-{version}.tar.gz'  # noqa
+
+    @property
+    def versioned_url(self):
+        # freetype 的 GitHub tag 用连字符：VER-2-14-1
+        dashed = self.version.replace('.', '-')
+        return self.url.format(dashed=dashed)
+
+    url = 'https://github.com/freetype/freetype/archive/refs/tags/VER-{dashed}.tar.gz'  # noqa
     built_libraries = {'libfreetype.so': 'objs/.libs'}
 
     def unpack(self, arch):
@@ -151,3 +158,4 @@ class FreetypeRecipe(Recipe):
 
 
 recipe = FreetypeRecipe()
+
