@@ -103,13 +103,6 @@ class NMLChart(Widget):
                     Color(*col)
                     Line(points=pts, width=dp(1.6))
 
-            # 选中日竖线高亮
-            if 0 <= self._last_idx < n:
-                x = pad_l + step * self._last_idx + step / 2.0
-                Color(1, 1, 1, 0.30)
-                Line(points=[x, pad_t, x, pad_t + plot_h], width=dp(1),
-                     dash_length=dp(4), dash_offset=dp(2))
-
             PopMatrix()
 
 
