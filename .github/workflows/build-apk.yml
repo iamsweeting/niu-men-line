@@ -60,7 +60,50 @@ jobs:
       - name: Prepare cache dirs
         run: mkdir -p ~/.buildozer ~/.gradle ~/.cache ~/.local
 
-     
+      # dl.google.com 的 NDK/SDK 大文件下载在 Actions 上偶发 502，这里预下载并
+      # 解压到 buildozer 期望的位置（platform/android-ndk-r27b、platform/android-sdk），
+      # docker 构建直接复用（curl 带重试/断点续传）。
+      - name: Pre-download Android NDK/SDK into buildozer cache
+        run: |
+          set -e
+          mkdir -p ~/.buildozer/android/platform
+          cd ~/.buildozer/android/platform
+          dl_retry() {
+            local url="$1" out="$2"
+            for i in 1 2 3 4 5 6 7 8; do
+              echo "下载 $out (尝试 $i): $url"
+              if curl -fL --retry 3 --retry-delay 5 -C - -o "$out" "$url"; then
+                echo "OK: $out ($(du -h "$out" | cut -f1))"
+                return 0
+              fi
+              sleep 10
+            done
+            echo "FAILED: $out"
+            return 1
+          }
+          # NDK r27b -> 解压到 android-ndk-r27b（buildozer 检查该目录）
+          if [ ! -d "$HOME/.buildozer/android/platform/android-ndk-r27b" ]; then
+            dl_retry \
+              "https://dl.google.com/android/repository/android-ndk-r27b-linux.zip" \
+              "$HOME/.buildozer/android/platform/ndk-tmp.zip"
+            unzip -q "$HOME/.buildozer/android/platform/ndk-tmp.zip" -d "$HOME/.buildozer/android/platform/"
+            rm -f "$HOME/.buildozer/android/platform/ndk-tmp.zip"
+            echo "NDK 解压完成"
+          fi
+          # commandline-tools -> 解压到 android-sdk/cmdline-tools/latest
+          if [ ! -d "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest" ]; then
+            dl_retry \
+              "https://dl.google.com/android/repository/commandlinetools-linux-6514223_latest.zip" \
+              "$HOME/.buildozer/android/platform/sdk-tmp.zip"
+            mkdir -p "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools"
+            unzip -q "$HOME/.buildozer/android/platform/sdk-tmp.zip" -d "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/"
+            mv "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/cmdline-tools" \
+               "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest"
+            rm -f "$HOME/.buildozer/android/platform/sdk-tmp.zip"
+            echo "SDK tools 解压完成"
+          fi
+        timeout-minutes: 40
+
       - name: Build APK via buildozer docker
         run: |
           # 容器内执行 tools/docker_build.sh（经 $PWD 挂载可见）：
