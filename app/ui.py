@@ -587,7 +587,7 @@ class NiumenApp(MDApp):
             cost_note = "（成交额口径）" if basis == "amount" else "（估算口径）"
         self.name_label.text = "%s  %s" % (self.stock_name or self.code, self.code)
         self.meta_label.text = "数据源：%s · 版本：%s%s" % (self.source or "—", ver_name, cost_note)
-        self.date_label.text = "截至交易日：%s（点击日历切换日期）" % b["date"]
+        self.date_label.text = "截至交易日：%s" % b["date"]
 
     def _update_chart(self):
         start = max(0, self.sel_idx - (config.DISPLAY_POINTS - 1))
