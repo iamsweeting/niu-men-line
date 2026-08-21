@@ -62,6 +62,14 @@ p4a.local_recipes = %(source.dir)s/p4a-recipes
 # NDK r27b：16KB 内存页对齐等 Android 15 时代要求的默认实现（r25c 无 16KB 支持）
 android.ndk = 27b
 
+# 固定调试签名密钥：仓库内 keystore/debug.keystore（androiddebugkey/android，
+# 标准 Android 调试密钥参数）。否则每次 CI 缓存未命中都会重新生成密钥，
+# 真机升级时报 INSTALL_FAILED_UPDATE_INCOMPATIBLE（签名不一致），只能卸载重装。
+p4a.android_keystore = %(source.dir)s/keystore/debug.keystore
+p4a.android_keystore_alias = androiddebugkey
+p4a.android_keystore_pass = android
+p4a.android_keyalias_pass = android
+
 # 图标（由 tools/make_icon.ps1 生成）
 icon.filename = %(source.dir)s/app/assets/icon.png
 
