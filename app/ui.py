@@ -217,33 +217,39 @@ class NiumenApp(MDApp):
         ))
 
     def _build_search(self, box):
+        mode = self._bisect_mode()
         row = MDBoxLayout(
             orientation="horizontal", size_hint_y=None, height=dp(58), spacing=dp(8),
         )
-        self.input_field = MDTextField(
-            hint_text="输入代码 如 sh000852 / 600519 / HSTECH",
-            size_hint=(1, None), height=dp(56),
-        )
-        row.add_widget(self.input_field)
-        btn = MDRaisedButton(
-            text="查询", size_hint=(None, None), width=dp(80), height=dp(48),
-        )
-        btn.bind(on_release=lambda x: self.on_query(self.input_field.text))
-        row.add_widget(btn)
+        if mode != "no-textfield":
+            self.input_field = MDTextField(
+                hint_text="输入代码 如 sh000852 / 600519 / HSTECH",
+                size_hint=(1, None), height=dp(56),
+            )
+            row.add_widget(self.input_field)
+        if mode != "no-buttons":
+            btn = MDRaisedButton(
+                text="查询", size_hint=(None, None), width=dp(80), height=dp(48),
+            )
+            btn.elevation = 0  # MDRaisedButton 默认 elevation=3 且 __init__ 强制覆盖，阴影着色器在 Adreno 崩溃
+            btn.bind(on_release=lambda x: self.on_query(self.input_field.text))
+            row.add_widget(btn)
         box.add_widget(row)
 
-        chips = MDBoxLayout(
-            orientation="horizontal", size_hint_y=None, height=dp(40), spacing=dp(8),
-        )
-        for code, label in (("sh000852", "中证1000"),
-                            ("sh600519", "贵州茅台"),
-                            ("hstech", "HSTECH")):
-            b = MDRaisedButton(
-                text=label, size_hint_x=1, size_hint_y=None, height=dp(36),
+        if mode != "no-buttons":
+            chips = MDBoxLayout(
+                orientation="horizontal", size_hint_y=None, height=dp(40), spacing=dp(8),
             )
-            b.bind(on_release=lambda x, c=code: self.on_query(c))
-            chips.add_widget(b)
-        box.add_widget(chips)
+            for code, label in (("sh000852", "中证1000"),
+                                ("sh600519", "贵州茅台"),
+                                ("hstech", "HSTECH")):
+                b = MDRaisedButton(
+                    text=label, size_hint_x=1, size_hint_y=None, height=dp(36),
+                )
+                b.elevation = 0  # 同上：关闭阴影着色器
+                b.bind(on_release=lambda x, c=code: self.on_query(c))
+                chips.add_widget(b)
+            box.add_widget(chips)
 
     def _build_info_card(self, box):
         self.info_card = MDCard(
