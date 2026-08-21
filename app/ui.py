@@ -35,6 +35,44 @@ from . import api, config, indicator, interpreter
 from .chart import DateAxis, NMLChart
 from .diag import status as diag_status
 
+
+def _disable_kivymd_elevation_shadows():
+    """全局禁用 KivyMD 阴影绘制（Adreno 825 驱动崩溃规避）。
+
+    真机 tombstone 系列证实：KivyMD 1.1.1 的 elevation 阴影用
+    RenderContext + 自定义 GLSL（elevation.frag）绘制，在 Adreno 825
+    上首次绘制即 SIGSEGV（glDrawElements fault 0x24，寄存器逐字节一致）。
+    且 ButtonElevationBehaviour.__init__ 会把 elevation=0 强制改回 3、
+    BaseDialog 默认 elevation=3，单点设置无法覆盖所有组件——
+    这里直接改 on_elevation 为永远置 elevation=0 并 hide_elevation(True)：
+    on_size 据此把阴影 rect 尺寸归零、不产生顶点，彻底不触发着色器绘制；
+    set_shader_string 也改为不安装自定义片段着色器，双保险。
+    """
+    try:
+        from kivy.clock import Clock as _Clock
+        from kivymd.uix.behaviors.elevation import CommonElevationBehavior
+    except Exception:  # noqa: BLE001
+        return
+
+    def _always_hide(self, instance, value):
+        def h(*args):
+            try:
+                self.elevation = 0
+                self.hide_elevation(True)
+            except Exception:  # noqa: BLE001
+                pass
+        _Clock.schedule_once(h)
+
+    def set_shader_string(self, *args, **kwargs):
+        # 保留原方法名（Kivy Clock 以名称引用回调），但不再安装自定义着色器
+        return
+
+    CommonElevationBehavior.on_elevation = _always_hide
+    CommonElevationBehavior.set_shader_string = set_shader_string
+
+
+_disable_kivymd_elevation_shadows()
+
 CARD_RADIUS = [dp(14), dp(14), dp(14), dp(14)]
 CARD_PADDING = [dp(14), dp(12), dp(14), dp(12)]
 LEVEL_KIND_COLORS = {
@@ -422,6 +460,12 @@ class NiumenApp(MDApp):
             year=dt.year, month=dt.month, day=dt.day,
             min_date=first, max_date=date.today(),
         )
+        # BaseDialog 默认 elevation=3 且 __init__ 强制覆盖——阴影着色器在
+        # Adreno 上崩溃，构造后立即置 0 关闭（与 MDRaisedButton 同理）。
+        try:
+            dlg.elevation = 0
+        except Exception:  # noqa: BLE001
+            pass
         dlg.bind(on_save=self.on_date_save)
         dlg.open()
 
